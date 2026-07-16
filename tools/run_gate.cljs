@@ -1,0 +1,92 @@
+;; Phase A kids-safety gate ランナー — 実測 facts を集めて kodomo.safety/gate に通す。
+;;   nbb --classpath src:resources tools/run_gate.cljs <build-dir> <mp4> <post-text-file>
+;; 計測: ffmpeg loudnorm (LUFS/TP) + signalstats YDIF (フラッシュ) + ffprobe (尺)。
+(ns run-gate
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            ["child_process" :as cp]
+            [clojure.string :as str]
+            [clojure.edn :as edn]
+            [kodomo.safety :as safety]))
+
+(def build-dir (first *command-line-args*))
+(def mp4 (second *command-line-args*))
+(def post-text (fs/readFileSync (nth *command-line-args* 2) "utf8"))
+
+(defn sh-out [cmd args]
+  (str (cp/execFileSync cmd (clj->js (map str args)) #js {:stdio #js ["ignore" "pipe" "pipe"]})))
+
+(defn sh-err [cmd args]
+  (let [r (cp/spawnSync cmd (clj->js (map str args)) #js {:encoding "utf8"})]
+    (str (.-stderr r))))
+
+;; --- loudness (loudnorm 計測パス) ----------------------------------------------
+(def loud
+  (let [out (sh-err "ffmpeg" ["-i" mp4 "-af" "loudnorm=print_format=json" "-f" "null" "-"])
+        json-str (re-find #"(?s)\{[^{]*\"input_i\".*?\}" out)
+        j (js/JSON.parse json-str)]
+    {:integrated-lufs (js/parseFloat (.-input_i j))
+     :true-peak-dbtp (js/parseFloat (.-input_tp j))}))
+
+;; --- duration -------------------------------------------------------------------
+(def duration
+  (js/parseFloat (str/trim (sh-out "ffprobe" ["-v" "error" "-show_entries" "format=duration"
+                                              "-of" "default=nw=1:nk=1" mp4]))))
+
+;; --- flash (YDIF: フレーム間平均輝度差) ------------------------------------------
+(def flash
+  (let [ydif-file (path/join build-dir "ydif.txt")]
+    (sh-err "ffmpeg" ["-i" mp4 "-vf"
+                      (str "signalstats,metadata=print:key=lavfi.signalstats.YDIF:file=" ydif-file)
+                      "-f" "null" "-"])
+    (let [vals (->> (str/split-lines (fs/readFileSync ydif-file "utf8"))
+                    (keep #(second (re-find #"YDIF=([0-9.]+)" %)))
+                    (mapv js/parseFloat))
+          fps 30
+          flashes (mapv #(if (> % 25.0) 1 0) vals)
+          window-max (reduce max 0
+                             (for [i (range (max 1 (- (count flashes) fps)))]
+                               (reduce + (subvec flashes i (min (count flashes) (+ i fps))))))]
+      {:max-flashes-per-sec window-max :frames (count vals)})))
+
+;; --- vocab (song EDN の歌詞を tokenize) ------------------------------------------
+(def tokenize
+  {"いちにさんしご" ["いち" "に" "さん" "し" "ご"]
+   "ろくしちはちきゅうじゅう" ["ろく" "しち" "はち" "きゅう" "じゅう"]
+   "いちからじゅうまで" ["いち" "から" "じゅう" "まで"]})
+
+(def song (edn/read-string (str/replace (fs/readFileSync "content/kazu-no-uta.edn" "utf8")
+                                        #"^;;.*\n" "")))
+(def lyric-tokens
+  (vec (mapcat (fn [l] (tokenize (:line/lyric l) [(:line/lyric l)]))
+               (mapcat :section/lines (:song/sections song)))))
+
+(def curriculum (edn/read-string (fs/readFileSync "resources/curriculum.edn" "utf8")))
+(def lexicon
+  (:curriculum/lexicon (first (filter #(= :kazu-1-10 (:curriculum/id %))
+                                      (:curriculum/topics curriculum)))))
+
+;; --- gate -------------------------------------------------------------------------
+(def facts
+  {:integrated-lufs (:integrated-lufs loud)
+   :true-peak-dbtp (:true-peak-dbtp loud)
+   :duration-sec duration
+   :kind :single
+   :max-flashes-per-sec (:max-flashes-per-sec flash)
+   :lyric-tokens lyric-tokens
+   :lexicon lexicon
+   :made-for-kids? true
+   :description post-text
+   :uses-voicevox? true
+   :ip-flags []})
+
+(let [{:keys [decision failed results]} (safety/gate facts)]
+  (println "facts:" (pr-str (dissoc facts :lyric-tokens :lexicon :description)))
+  (println "tokens:" (count lyric-tokens) "lexicon:" (count lexicon))
+  (doseq [r results]
+    (println (if (:ok? r) " OK " " NG ") (:check r) (pr-str (:detail r))))
+  (println "DECISION:" decision)
+  (fs/writeFileSync (path/join build-dir "gate-result.edn")
+                    (pr-str {:decision decision :facts (dissoc facts :lyric-tokens)
+                             :failed (mapv :check failed)}))
+  (when (= :hold decision) (js/process.exit 1)))

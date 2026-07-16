@@ -1,0 +1,9 @@
+{
+  "name": "ai-gftd-dougaka-kodomo",
+  "private": true,
+  "description": "toddler edu-song pipeline tools (nbb)",
+  "dependencies": {
+    "@ipld/dag-cbor": "^10.0.1",
+    "@noble/curves": "^2.2.0"
+  }
+}

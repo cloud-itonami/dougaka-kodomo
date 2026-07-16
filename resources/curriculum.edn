@@ -13,7 +13,8 @@
    :curriculum/title "かずのうた 1〜10"
    :curriculum/goal "1から10までの数唱と個数の対応"
    :curriculum/melody-source :original
-   :curriculum/lexicon ["いち" "に" "さん" "し" "ご" "ろく" "しち" "はち" "きゅう" "じゅう" "かぞえる" "りんご"]
+   :curriculum/lexicon ["いち" "に" "さん" "し" "ご" "ろく" "しち" "はち" "きゅう" "じゅう"
+                        "かぞえる" "かぞえよう" "から" "まで" "りんご" "いっしょ"]
    :curriculum/priority 90}
   {:curriculum/id :iro
    :curriculum/title "いろのうた"

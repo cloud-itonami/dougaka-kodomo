@@ -1,0 +1,245 @@
+;; Phase A 映像レンダラ — SVG 生成 → rsvg-convert → ffmpeg 拍同期合成。
+;;   nbb tools/render_kazu_video.cljs <build-dir>
+;; compose-scene 設計（ADR-2607164500）の最小実装:
+;; cutout layer + BPM 同期 bounce + カウント連動のりんご出現。
+(ns render-kazu-video
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            ["child_process" :as cp]
+            [clojure.string :as str]))
+
+(def build-dir (or (first *command-line-args*) "build"))
+(def W 1280) (def H 720) (def beat 0.6)
+
+(defn sh [cmd args]
+  (cp/execFileSync cmd (clj->js (map str args)) #js {:stdio #js ["ignore" "ignore" "pipe"]}))
+
+(defn write-svg [name svg] (fs/writeFileSync (path/join build-dir name) svg))
+(defn png [svg-name png-name w]
+  (sh "rsvg-convert" ["-w" w "-o" (path/join build-dir png-name)
+                      (path/join build-dir svg-name)]))
+
+;; --- characters ---------------------------------------------------------------
+
+(def melo-svg
+  (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 460'>"
+       "<circle cx='180' cy='150' r='118' fill='#F4813F'/>"
+       "<circle cx='180' cy='168' r='94' fill='#FFE3C9'/>"
+       "<circle cx='128' cy='96' r='46' fill='#F4813F'/>"
+       "<circle cx='180' cy='84' r='50' fill='#F4813F'/>"
+       "<circle cx='232' cy='96' r='46' fill='#F4813F'/>"
+       "<circle cx='145' cy='178' r='11' fill='#3A2B22'/><circle cx='149' cy='174' r='3.5' fill='#fff'/>"
+       "<circle cx='215' cy='178' r='11' fill='#3A2B22'/><circle cx='219' cy='174' r='3.5' fill='#fff'/>"
+       "<circle cx='122' cy='208' r='13' fill='#FFB3B3' opacity='.75'/>"
+       "<circle cx='238' cy='208' r='13' fill='#FFB3B3' opacity='.75'/>"
+       "<path d='M158,208 Q180,228 202,208' stroke='#B5651D' stroke-width='6' fill='none' stroke-linecap='round'/>"
+       "<rect x='118' y='258' width='124' height='132' rx='30' fill='#FFD84D'/>"
+       "<rect x='140' y='258' width='18' height='40' fill='#FFC61A'/>"
+       "<rect x='202' y='258' width='18' height='40' fill='#FFC61A'/>"
+       "<circle cx='98' cy='310' r='20' fill='#FFE3C9'/>"
+       "<circle cx='262' cy='310' r='20' fill='#FFE3C9'/>"
+       "<rect x='142' y='388' width='28' height='42' rx='12' fill='#FFE3C9'/>"
+       "<rect x='190' y='388' width='28' height='42' rx='12' fill='#FFE3C9'/>"
+       "</svg>"))
+
+(def popo-svg
+  (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 350'>"
+       "<path d='M140,18 Q150,40 140,52' stroke='#C98A5B' stroke-width='7' fill='none' stroke-linecap='round'/>"
+       "<circle cx='140' cy='120' r='76' fill='#FFE3C9'/>"
+       "<circle cx='112' cy='120' r='9' fill='#3A2B22'/><circle cx='115' cy='117' r='3' fill='#fff'/>"
+       "<circle cx='168' cy='120' r='9' fill='#3A2B22'/><circle cx='171' cy='117' r='3' fill='#fff'/>"
+       "<circle cx='95' cy='145' r='11' fill='#FFB3B3' opacity='.75'/>"
+       "<circle cx='185' cy='145' r='11' fill='#FFB3B3' opacity='.75'/>"
+       "<ellipse cx='140' cy='155' rx='11' ry='13' fill='#E0705A'/>"
+       "<rect x='82' y='198' width='116' height='108' rx='28' fill='#B8EAD9'/>"
+       "<circle cx='66' cy='240' r='16' fill='#FFE3C9'/>"
+       "<circle cx='214' cy='240' r='16' fill='#FFE3C9'/>"
+       "<rect x='102' y='306' width='24' height='34' rx='11' fill='#FFE3C9'/>"
+       "<rect x='152' y='306' width='24' height='34' rx='11' fill='#FFE3C9'/>"
+       "</svg>"))
+
+(def mimi-svg
+  (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 430'>"
+       "<rect x='100' y='8' width='38' height='128' rx='19' fill='#fff' stroke='#E3D9CF' stroke-width='3'/>"
+       "<rect x='162' y='8' width='38' height='128' rx='19' fill='#fff' stroke='#E3D9CF' stroke-width='3'/>"
+       "<rect x='111' y='26' width='16' height='92' rx='8' fill='#FFC7D6'/>"
+       "<rect x='173' y='26' width='16' height='92' rx='8' fill='#FFC7D6'/>"
+       "<circle cx='150' cy='205' r='82' fill='#fff' stroke='#E3D9CF' stroke-width='3'/>"
+       "<circle cx='120' cy='196' r='9' fill='#3A2B22'/><circle cx='123' cy='193' r='3' fill='#fff'/>"
+       "<circle cx='180' cy='196' r='9' fill='#3A2B22'/><circle cx='183' cy='193' r='3' fill='#fff'/>"
+       "<path d='M143,222 L157,222 L150,232 Z' fill='#FF9FB6'/>"
+       "<circle cx='100' cy='222' r='11' fill='#FFC7D6' opacity='.8'/>"
+       "<circle cx='200' cy='222' r='11' fill='#FFC7D6' opacity='.8'/>"
+       "<ellipse cx='150' cy='345' rx='68' ry='72' fill='#fff' stroke='#E3D9CF' stroke-width='3'/>"
+       "<ellipse cx='150' cy='360' rx='40' ry='46' fill='#FFF4E8'/>"
+       "<circle cx='58' cy='60' r='10' fill='#FFD9E4'/>"
+       "</svg>"))
+
+(defn apple-svg [n]
+  (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 190'>"
+       "<rect x='74' y='16' width='12' height='30' rx='6' fill='#8A5A33'/>"
+       "<ellipse cx='108' cy='30' rx='26' ry='13' fill='#7CC46B' transform='rotate(-18 108 30)'/>"
+       "<circle cx='80' cy='112' r='64' fill='#E64B3C'/>"
+       "<ellipse cx='58' cy='90' rx='18' ry='24' fill='#F07A6B' opacity='.8'/>"
+       "<text x='80' y='134' text-anchor='middle' font-family='Hiragino Sans, Arial, sans-serif'"
+       " font-weight='700' font-size='60' fill='#fff'>" n "</text>"
+       "</svg>"))
+
+;; --- backgrounds ----------------------------------------------------------------
+
+(defn bg-base [& body]
+  (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'>"
+       "<defs><linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'>"
+       "<stop offset='0' stop-color='#BEE3F8'/><stop offset='1' stop-color='#FFF6DC'/>"
+       "</linearGradient></defs>"
+       "<rect width='1280' height='720' fill='url(#sky)'/>"
+       "<circle cx='1105' cy='105' r='64' fill='#FFD86B'/>"
+       "<g fill='#fff' opacity='.9'>"
+       "<ellipse cx='230' cy='120' rx='95' ry='34'/><ellipse cx='310' cy='105' rx='70' ry='28'/>"
+       "<ellipse cx='800' cy='80' rx='80' ry='28'/><ellipse cx='870' cy='95' rx='60' ry='24'/>"
+       "</g>"
+       "<ellipse cx='300' cy='800' rx='560' ry='210' fill='#9FD98A'/>"
+       "<ellipse cx='1030' cy='820' rx='600' ry='230' fill='#8CD07F'/>"
+       (apply str body)
+       "</svg>"))
+
+(def bg-title
+  (bg-base
+   "<text x='640' y='300' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
+   " font-weight='800' font-size='118' fill='#FF8A5B' stroke='#ffffff' stroke-width='14'"
+   " paint-order='stroke'>かずのうた</text>"
+   "<text x='640' y='386' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
+   " font-weight='600' font-size='46' fill='#4A6FA5' stroke='#ffffff' stroke-width='8'"
+   " paint-order='stroke'>いち・に・さん で かぞえよう!</text>"))
+
+(def bg-meadow (bg-base))
+
+(def bg-chorus
+  (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'>"
+       "<defs><linearGradient id='pk' x1='0' y1='0' x2='0' y2='1'>"
+       "<stop offset='0' stop-color='#FFE9F2'/><stop offset='1' stop-color='#E7F5FF'/>"
+       "</linearGradient></defs>"
+       "<rect width='1280' height='720' fill='url(#pk)'/>"
+       "<path d='M240,720 A400,400 0 0 1 1040,720' fill='none' stroke='#FFB3C7' stroke-width='34'/>"
+       "<path d='M280,720 A360,360 0 0 1 1000,720' fill='none' stroke='#FFE08A' stroke-width='34'/>"
+       "<path d='M320,720 A320,320 0 0 1 960,720' fill='none' stroke='#A8DCFF' stroke-width='34'/>"
+       (apply str (for [[x y r c] [[120 120 26 "#FFD9E6"] [1150 200 30 "#D6F0FF"]
+                                   [220 420 20 "#FFF2B8"] [1080 460 24 "#DFF7DC"]
+                                   [640 90 22 "#FFE3EF"] [90 560 18 "#E5E1FF"]]]
+                     (str "<circle cx='" x "' cy='" y "' r='" r "' fill='" c "'/>")))
+       "<text x='640' y='150' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
+       " font-weight='800' font-size='84' fill='#FF7FA8' stroke='#ffffff' stroke-width='12'"
+       " paint-order='stroke'>かぞえよう!</text>"
+       "</svg>"))
+
+;; --- assets ---------------------------------------------------------------------
+
+(defn gen-assets! []
+  (write-svg "melo.svg" melo-svg)
+  (write-svg "popo.svg" popo-svg)
+  (write-svg "mimi.svg" mimi-svg)
+  (write-svg "bg-title.svg" bg-title)
+  (write-svg "bg-meadow.svg" bg-meadow)
+  (write-svg "bg-chorus.svg" bg-chorus)
+  (doseq [n (range 1 11)] (write-svg (str "apple-" n ".svg") (apple-svg n)))
+  (png "bg-title.svg" "bg-title.png" W)
+  (png "bg-meadow.svg" "bg-meadow.png" W)
+  (png "bg-chorus.svg" "bg-chorus.png" W)
+  (doseq [[svg out w] [["melo.svg" "melo-m.png" 260] ["melo.svg" "melo-l.png" 330]
+                       ["popo.svg" "popo-m.png" 200] ["popo.svg" "popo-l.png" 250]
+                       ["mimi.svg" "mimi-m.png" 220] ["mimi.svg" "mimi-l.png" 280]]]
+    (png svg out w))
+  (doseq [n (range 1 11)]
+    (png (str "apple-" n ".svg") (str "apple-" n "-m.png") 150)
+    (png (str "apple-" n ".svg") (str "apple-" n "-s.png") 112))
+  (png "apple-10.svg" "apple-10-big.png" 340)
+  (println "assets rendered"))
+
+;; --- section renders ------------------------------------------------------------
+
+(defn bounce [y amp] (str y "-" amp "*abs(sin(PI*t/" beat "))"))
+(defn bob [y amp phase] (str y "+" amp "*sin(2*PI*t/1.2+" phase ")"))
+
+(defn render-section!
+  "bg + overlays → sec.mp4。overlays: [{:img :x :y-expr :enable}]"
+  [out bg dur overlays]
+  (let [inputs (concat ["-loop" "1" "-t" dur "-i" (path/join build-dir bg)]
+                       (mapcat (fn [{:keys [img]}]
+                                 ["-loop" "1" "-t" dur "-i" (path/join build-dir img)])
+                               overlays))
+        chain (str/join ";"
+                        (map-indexed
+                         (fn [i {:keys [x y-expr enable]}]
+                           (str "[v" i "][" (inc i) ":v]overlay=x=" x ":y=" y-expr
+                                (when enable (str ":enable='" enable "'"))
+                                (if (= i (dec (count overlays)))
+                                  (str ",fps=30[vout]")
+                                  (str "[v" (inc i) "]"))))
+                         overlays))
+        fg (str "[0:v]null[v0];" chain)]
+    (sh "ffmpeg" (concat inputs
+                         ["-filter_complex" fg "-map" "[vout]"
+                          "-c:v" "libx264" "-preset" "veryfast" "-crf" "20"
+                          "-pix_fmt" "yuv420p" "-y" (path/join build-dir out)]))
+    (println out "rendered")))
+
+(defn -main []
+  (gen-assets!)
+  (let [apple-x-5 (fn [i] (+ 190 (* 195 i)))          ; 5個列 (150px)
+        apple-x-10 (fn [i] (+ 22 (* 125 i)))          ; 10個列 (112px)
+        verse-chars [{:img "melo-m.png" :x 60 :y-expr (bounce 320 22)}
+                     {:img "mimi-m.png" :x 990 :y-expr (bounce 330 26)}]
+        chorus-chars [{:img "melo-l.png" :x 220 :y-expr (bounce 280 30)}
+                      {:img "popo-l.png" :x 540 :y-expr (bounce 360 26)}
+                      {:img "mimi-l.png" :x 830 :y-expr (bounce 300 32)}]]
+    ;; intro 9.6s
+    (render-section! "sec0.mp4" "bg-title.png" 9.6
+                     [{:img "melo-m.png" :x 300 :y-expr (bounce 400 22)}
+                      {:img "popo-m.png" :x 590 :y-expr (bounce 450 18)}
+                      {:img "mimi-m.png" :x 830 :y-expr (bounce 410 26)}])
+    ;; verse1 16.8s: apples 1-5 pop at local 0,2.4,...
+    (render-section! "sec1.mp4" "bg-meadow.png" 16.8
+                     (concat verse-chars
+                             (for [i (range 5)]
+                               {:img (str "apple-" (inc i) "-m.png")
+                                :x (apple-x-5 i)
+                                :y-expr (bob 80 6 i)
+                                :enable (str "gte(t," (* i 2.4) ")")})))
+    ;; chorus 19.2s
+    (render-section! "sec2.mp4" "bg-chorus.png" 19.2 chorus-chars)
+    ;; verse2 19.2s: apples 1-5 visible, 6-10 pop
+    (render-section! "sec3.mp4" "bg-meadow.png" 19.2
+                     (concat verse-chars
+                             (for [i (range 10)]
+                               {:img (str "apple-" (inc i) "-s.png")
+                                :x (apple-x-10 i)
+                                :y-expr (bob 70 6 i)
+                                :enable (when (>= i 5) (str "gte(t," (* (- i 5) 2.4) ")"))})))
+    ;; chorus2 19.2s
+    (render-section! "sec4.mp4" "bg-chorus.png" 19.2 chorus-chars)
+    ;; outro 14.4s: 10 apples + final big 10 at local 9.6
+    (render-section! "sec5.mp4" "bg-meadow.png" 14.4
+                     (concat [{:img "melo-m.png" :x 160 :y-expr (bounce 340 22)}
+                              {:img "popo-m.png" :x 430 :y-expr (bounce 400 18)}
+                              {:img "mimi-m.png" :x 940 :y-expr (bounce 350 26)}]
+                             (for [i (range 10)]
+                               {:img (str "apple-" (inc i) "-s.png")
+                                :x (apple-x-10 i)
+                                :y-expr (bob 70 6 i)})
+                             [{:img "apple-10-big.png" :x 470
+                               :y-expr (bounce 250 26)
+                               :enable "gte(t,9.6)"}]))
+    ;; concat + mux
+    (fs/writeFileSync (path/join build-dir "concat.txt")
+                      (str/join "\n" (for [i (range 6)]
+                                       (str "file 'sec" i ".mp4'"))))
+    (sh "ffmpeg" ["-f" "concat" "-safe" "0" "-i" (path/join build-dir "concat.txt")
+                  "-c" "copy" "-y" (path/join build-dir "video-noaudio.mp4")])
+    (sh "ffmpeg" ["-i" (path/join build-dir "video-noaudio.mp4")
+                  "-i" (path/join build-dir "audio-final.wav")
+                  "-c:v" "copy" "-c:a" "aac" "-b:a" "192k"
+                  "-movflags" "+faststart" "-shortest" "-y"
+                  (path/join build-dir "kazu-no-uta.mp4")])
+    (println "kazu-no-uta.mp4 done")))
+
+(-main)
