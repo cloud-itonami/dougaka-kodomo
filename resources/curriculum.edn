@@ -1,0 +1,53 @@
+;; 知育カリキュラム topic カタログ（yukkuri content/*-topics カタログに相当）。
+;; :curriculum/lexicon は kodomo.safety/check-vocab の対象年齢語彙。
+;; :curriculum/melody-source :original | :public-domain（PD 童謡のオリジナル編曲のみ可）。
+{:curriculum/version 1
+ :curriculum/topics
+ [{:curriculum/id :abc
+   :curriculum/title "ABCのうた"
+   :curriculum/goal "アルファベット26文字の音と順番"
+   :curriculum/melody-source :public-domain   ; Twinkle Twinkle 系 PD メロディ
+   :curriculum/lexicon ["えー" "びー" "しー" "うた" "いっしょ" "もういっかい"]
+   :curriculum/priority 90}
+  {:curriculum/id :kazu-1-10
+   :curriculum/title "かずのうた 1〜10"
+   :curriculum/goal "1から10までの数唱と個数の対応"
+   :curriculum/melody-source :original
+   :curriculum/lexicon ["いち" "に" "さん" "し" "ご" "ろく" "しち" "はち" "きゅう" "じゅう" "かぞえる" "りんご"]
+   :curriculum/priority 90}
+  {:curriculum/id :iro
+   :curriculum/title "いろのうた"
+   :curriculum/goal "基本色8色の名前"
+   :curriculum/melody-source :original
+   :curriculum/lexicon ["あか" "あお" "きいろ" "みどり" "しろ" "くろ" "ぴんく" "おれんじ" "いろ" "どれ"]
+   :curriculum/priority 80}
+  {:curriculum/id :doubutsu-koe
+   :curriculum/title "どうぶつのこえ"
+   :curriculum/goal "動物10種の名前と鳴き声"
+   :curriculum/melody-source :public-domain   ; Old MacDonald 系 PD メロディ
+   :curriculum/lexicon ["いぬ" "ねこ" "うし" "ぶた" "ひよこ" "わんわん" "にゃあ" "もー" "ぶーぶー" "ぴよぴよ"]
+   :curriculum/priority 85}
+  {:curriculum/id :hamigaki
+   :curriculum/title "はみがきのうた"
+   :curriculum/goal "歯みがきの生活習慣（上・下・奥）"
+   :curriculum/melody-source :original
+   :curriculum/lexicon ["はみがき" "しゅっしゅ" "うえ" "した" "おく" "ぴかぴか" "きれい"]
+   :curriculum/priority 75}
+  {:curriculum/id :norimono
+   :curriculum/title "バスのうた"
+   :curriculum/goal "乗り物の名前と動き（車輪・ワイパー・クラクション）"
+   :curriculum/melody-source :public-domain   ; Wheels on the Bus 系 PD メロディ
+   :curriculum/lexicon ["ばす" "たいや" "ぐるぐる" "ぷっぷー" "はしる" "まち"]
+   :curriculum/priority 85}
+  {:curriculum/id :ofuro
+   :curriculum/title "おふろのうた"
+   :curriculum/goal "お風呂の生活習慣（あらう部位の名前）"
+   :curriculum/melody-source :original
+   :curriculum/lexicon ["おふろ" "あわあわ" "あたま" "おなか" "あし" "ごしごし" "さっぱり"]
+   :curriculum/priority 70}
+  {:curriculum/id :aisatsu
+   :curriculum/title "あいさつのうた"
+   :curriculum/goal "おはよう・ありがとう・ばいばい の場面対応"
+   :curriculum/melody-source :original
+   :curriculum/lexicon ["おはよう" "こんにちは" "ありがとう" "ばいばい" "にこにこ"]
+   :curriculum/priority 70}]}

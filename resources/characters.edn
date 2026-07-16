@@ -1,0 +1,43 @@
+;; ai-gftd-dougaka-kodomo — キャラクターファミリー SSoT（機械可読）
+;; yukkuri content/channels.edn と同型。オリジナルキャラのみ —
+;; 既存商用幼児 IP（Cocomelon / ChuChu TV / Pinkfong 等）への類似は
+;; kodomo.safety の :ip-similarity gate 対象。
+;; reference sheets（LoRA 学習用 15〜20 枚/キャラ）は DataLad/B2 経路で持つ
+;; （このリポジトリに画像実体は置かない — ADR-2607155500 Phase 1 と同じ扱い）。
+{:channel/id "kodomo"
+ :channel/genre :toddler-edu-song
+ :channel/base-language "ja"
+ :channel/target-age [0 4]
+ :channel/tone "ゆっくり・明るい・反復・高彩度すぎない"
+ :channel/compliance {:made-for-kids true
+                      :external-links false
+                      :max-flashes-per-sec 3}
+ :channel/cast
+ [{:cast/id :melo
+   :cast/name "メロ"
+   :cast/role :lead-singer
+   :cast/persona "4歳の女の子。好奇心旺盛。うたのおねえさん役。"
+   :cast/voice "voicevox-song:primary"     ; 歌唱経路。話者選定は follow-up
+   :cast/design "round face, big eyes, orange bob hair, yellow overalls"
+   :cast/motion-set [:bounce :clap :wave :spin]}
+  {:cast/id :popo
+   :cast/name "ポポ"
+   :cast/role :baby
+   :cast/persona "1歳の弟。単語をまねして繰り返す（call-and-response の response 役）。"
+   :cast/voice "voicevox-song:secondary"
+   :cast/design "baby, tuft of hair, mint green romper"
+   :cast/motion-set [:bounce :crawl :peekaboo]}
+  {:cast/id :mimi
+   :cast/name "ミミ"
+   :cast/role :animal-friend
+   :cast/persona "うさぎ。数かぞえ・ジャンプ担当。"
+   :cast/voice nil                          ; 非言語 SFX のみ
+   :cast/design "white rabbit, pink inner ears, blue scarf"
+   :cast/motion-set [:hop :ear-flap]}
+  {:cast/id :gao
+   :cast/name "ガオ"
+   :cast/role :animal-friend
+   :cast/persona "こどもライオン。どうぶつの声・のりもの担当。"
+   :cast/voice nil
+   :cast/design "lion cub, round mane, red bandana"
+   :cast/motion-set [:stomp :roar :drive]}]}
