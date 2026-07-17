@@ -1,0 +1,78 @@
+;; Phase C 汎用 produce ドライバ(ADR-2607164500 / 2607162200)。
+;;   nbb --classpath src:resources tools/produce.cljs <topic-id> [--publish] [--voice <url>]
+;; resources/songs.edn の1エントリを compose→audio→video→gate→publish で一気通貫。
+;; gate は HARD gate: :hold なら publish せず非ゼロ終了(escalate、ADR-2607162200)。
+;; --voice 既定 http://127.0.0.1:50021(ローカル VOICEVOX、高速・確実)。cadence が
+;; 回るマシンには VOICEVOX が常駐している前提。公開 API(https://api.murakumo.cloud)は
+;; VOICEVOX を持たないリモート消費者向けで、10 スコアのバッチ合成では tunnel の帯域
+;; 制約で遅くなる(ADR-2607164500 Phase B addendum)。--publish 無しはドライラン。
+(ns produce
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            ["child_process" :as cp]
+            [clojure.edn :as edn]
+            [clojure.string :as str]))
+
+(def args (vec *command-line-args*))
+(def topic-id (keyword (first args)))
+(def publish? (some #(= "--publish" %) args))
+(def voice-url
+  (or (second (drop-while #(not= "--voice" %) args)) "http://127.0.0.1:50021"))
+
+(def repo-root (path/dirname (path/dirname (path/resolve "tools/produce.cljs"))))
+(def build-dir (path/join "/tmp" (str "dougaka-produce-" (name topic-id))))
+
+(def songs
+  (:songs (edn/read-string (fs/readFileSync (path/join repo-root "resources" "songs.edn") "utf8"))))
+(def song (first (filter #(= topic-id (:topic %)) songs)))
+
+(defn run! [label cmd cmd-args]
+  (println (str "▶ " label))
+  (let [r (cp/spawnSync cmd (clj->js (map str cmd-args))
+                        #js {:cwd repo-root :encoding "utf8" :stdio "inherit"})]
+    (when-not (zero? (.-status r))
+      (println (str "✘ " label " failed (exit " (.-status r) ")"))
+      (js/process.exit 1))))
+
+(defn -main []
+  (when-not song
+    (println "unknown topic:" topic-id "— registered:" (pr-str (mapv :topic songs)))
+    (js/process.exit 2))
+  (fs/mkdirSync build-dir #js {:recursive true})
+  (println (str "=== produce " (name topic-id) " → " build-dir " (publish=" publish? ") ==="))
+  (run! "compose" "nbb" ["--classpath" "src:resources" (:composer song) build-dir])
+  (run! "audio (public API)" "nbb" [(str repo-root "/tools/render_kazu_audio.cljs") build-dir voice-url])
+  (run! "video" "nbb" [(:video song) build-dir])
+  ;; gate は HARD: exit 1 で produce ごと止める(publish しない)
+  (let [mp4 (path/join build-dir (str (str/replace (:rkey song) #"-001$" "") ".mp4"))
+        ;; render_<x>_video の出力名は <topic-slug>.mp4(kazu-no-uta.mp4 等)
+        mp4 (let [cand (->> (fs/readdirSync build-dir)
+                            (filter #(and (str/ends-with? % ".mp4")
+                                          (not (str/includes? % "noaudio"))
+                                          (not (str/starts-with? % "sec"))))
+                            first)]
+              (path/join build-dir cand))
+        post-text-file (path/join build-dir "post-text.txt")]
+    (fs/writeFileSync post-text-file (:post-text song))
+    (println "▶ safety gate (HARD)")
+    (let [r (cp/spawnSync "nbb" (clj->js ["--classpath" "src:resources" "tools/run_gate.cljs"
+                                          build-dir mp4 post-text-file (:song-edn song) (name topic-id)])
+                          #js {:cwd repo-root :encoding "utf8"})]
+      (println (.-stdout r))
+      (when-not (zero? (.-status r))
+        (println "✘ kids-safety gate HELD — escalate, NOT publishing (ADR-2607162200)")
+        (js/process.exit 1))
+      (println "✓ gate green"))
+    (if-not publish?
+      (println (str "✓ produced (dry-run). mp4 = " mp4 "  — re-run with --publish to post."))
+      (do
+        (println "▶ publish → aozora.app")
+        (run! "publish"
+              "nbb"
+              [(str "--classpath")
+               "/Users/junkawasaki/github/com-junkawasaki/orgs/kotoba-lang/kotobase-client/src"
+               (str repo-root "/tools/publish_aozora.cljs")
+               mp4 post-text-file "kodomo.aozora.app" (:rkey song) (:alt song)])
+        (println (str "✓ posted " (:rkey song)))))))
+
+(-main)

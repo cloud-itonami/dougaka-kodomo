@@ -1,0 +1,165 @@
+;; どうぶつのこえ (5どうぶつ) — Phase A の第3曲(ADR-2607164500)。
+;;   nbb --classpath src:resources tools/compose_doubutsu.cljs <build-dir>
+;; Old MacDonald 系 PD メロディのオリジナル編曲。動物名 + 鳴き声の call-and-response。
+;; compose_kazu/iro と同じ JSON 出力形(render_kazu_audio 汎用が処理)。映像は
+;; render_doubutsu_video.cljs。
+(ns compose-doubutsu
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            [kodomo.song :as song]))
+
+(def bpm 100)
+(def beat-sec (/ 60.0 bpm))
+(def frames-per-beat (* beat-sec 93.75))
+
+(def midi->kw
+  {60 :C4 61 :C#4 62 :D4 63 :D#4 64 :E4 65 :F4 66 :F#4 67 :G4
+   68 :G#4 69 :A4 70 :A#4 71 :B4 72 :C5 73 :C#5 74 :D5})
+
+;; [名前 [[mora midi beats]...]] [鳴き声 [[mora midi beats]...]]
+;; Old MacDonald 風: G G G D E E D | (名前) → 鳴き声で応答
+(def animals
+  [{:name ["いぬ"   [["い" 67 0.75] ["ぬ" 67 0.75]]]
+    :sound ["わんわん" [["わ" 67 0.5] ["ん" 62 0.5] ["わ" 64 0.5] ["ん" 62 1.0]]]}
+   {:name ["ねこ"   [["ね" 67 0.75] ["こ" 67 0.75]]]
+    :sound ["にゃあ" [["にゃ" 67 0.75] ["あ" 62 0.75]]]}
+   {:name ["うし"   [["う" 67 0.75] ["し" 67 0.75]]]
+    :sound ["もー"   [["も" 64 0.75] ["ー" 62 1.5]]]}
+   {:name ["ぶた"   [["ぶ" 67 0.75] ["た" 67 0.75]]]
+    :sound ["ぶーぶー" [["ぶ" 67 0.5] ["ー" 62 0.5] ["ぶ" 64 0.5] ["ー" 62 1.0]]]}
+   {:name ["ひよこ" [["ひ" 67 0.5] ["よ" 67 0.5] ["こ" 67 0.5]]]
+    :sound ["ぴよぴよ" [["ぴ" 67 0.5] ["よ" 69 0.5] ["ぴ" 71 0.5] ["よ" 72 1.0]]]}])
+
+(defn mk-line [start-beat singer kind [lyric notes]]
+  {:line/lyric lyric :line/singer singer :line/kind kind :line/start-beat start-beat
+   :line/notes (mapv (fn [[mora midi beats]]
+                       {:note/mora mora :note/pitch (midi->kw midi) :note/midi midi :note/beats beats})
+                     notes)})
+
+;; verse: 各どうぶつ = 名前(melo, 2拍) + 鳴き声(popo, 2拍)。5どうぶつ×4拍 = 20拍
+(defn verse-lines [as]
+  (vec (mapcat (fn [i {:keys [name sound]}]
+                 (let [b (* i 4)]
+                   [(mk-line b :melo :sung name)
+                    (mk-line (+ b 2) :popo :sung sound)]))
+               (range) as)))
+
+;; サビ: 「なきごえ たのしいな」
+(def chorus-a ["なきごえ" [["な" 67 0.5] ["き" 69 0.5] ["ご" 71 0.5] ["え" 72 1.0]]])
+(def chorus-b ["たのしいな" [["た" 72 0.5] ["の" 71 0.5] ["し" 69 0.5] ["い" 67 0.5] ["な" 65 1.0]]])
+(defn chorus-lines []
+  (vec (for [[bar singer l] [[0 :melo chorus-a] [1 :popo chorus-a]
+                             [2 :melo chorus-b] [3 :melo chorus-a]
+                             [4 :melo chorus-a] [5 :popo chorus-a]
+                             [6 :melo chorus-b] [7 :melo chorus-a]]]
+         (mk-line (* bar 4) singer :sung l))))
+
+(def outro-spoken
+  (map vector [1 3 5 7 9] (cycle [:melo :popo]) (map (comp first :name) animals)))
+
+(def sections
+  [[:intro 16 []]
+   [:verse 24 (verse-lines animals)]
+   [:chorus 32 (chorus-lines)]
+   [:verse 24 (verse-lines animals)]
+   [:chorus 32 (chorus-lines)]
+   [:call-response 16
+    (vec (concat
+          (for [[b singer text] outro-spoken]
+            {:line/lyric text :line/singer singer :line/kind :spoken :line/start-beat b})
+          [(mk-line 12 :melo :sung ["なきごえ" [["な" 67 0.75] ["き" 72 0.75] ["ご" 72 0.75] ["え" 72 1.5]]])
+           (mk-line 12 :popo :sung ["なきごえ" [["な" 67 0.75] ["き" 72 0.75] ["ご" 72 0.75] ["え" 72 1.5]]])]))]])
+
+(def section-starts (vec (reductions + 0 (map second sections))))
+(def total-beats (last section-starts))
+
+(def song-spec
+  {:song/id "doubutsu-001" :song/topic :doubutsu-koe :song/language "ja"
+   :song/bpm bpm :song/key :C
+   :song/sections
+   (mapv (fn [[kind _len lines]]
+           {:section/kind (if (= kind :intro) :verse kind)
+            :section/lines
+            (mapv (fn [l]
+                    (cond-> {:line/lyric (:line/lyric l) :line/singer (:line/singer l)}
+                      (:line/notes l)
+                      (assoc :line/notes (mapv #(select-keys % [:note/pitch :note/beats]) (:line/notes l)))))
+                  lines)})
+         (rest sections))})
+
+(defn beats->frames [b] (js/Math.round (* b frames-per-beat)))
+(def pre-roll-frames (beats->frames 1))
+(def pre-roll-sec (/ pre-roll-frames 93.75))
+
+(defn build-score [lines]
+  (let [notes (sort-by :abs-beat
+                       (for [l lines :when (= :sung (:line/kind l))
+                             :let [start (:line/start-beat l)]
+                             [i n] (map-indexed vector (:line/notes l))
+                             :let [nb (reduce + (map :note/beats (take i (:line/notes l))))]]
+                         {:abs-beat (+ start nb) :beats (:note/beats n) :midi (:note/midi n) :mora (:note/mora n)}))]
+    (when (seq notes)
+      (let [out #js []]
+        (.push out #js {:key nil :frame_length pre-roll-frames :lyric ""})
+        (loop [cursor-f 0 ns' notes]
+          (if (empty? ns')
+            (do (.push out #js {:key nil :frame_length 20 :lyric ""}) {:notes out})
+            (let [{:keys [abs-beat beats midi mora]} (first ns')
+                  start-f (beats->frames abs-beat) end-f (beats->frames (+ abs-beat beats))]
+              (when (> start-f cursor-f)
+                (.push out #js {:key nil :frame_length (- start-f cursor-f) :lyric ""}))
+              (.push out #js {:key midi :frame_length (max 1 (- end-f (max start-f cursor-f))) :lyric mora})
+              (recur (max end-f cursor-f) (rest ns')))))))))
+
+(def chord-table {:C [60 64 67] :F [65 69 72] :G [67 71 74] :Am [57 60 64]})
+(def progression
+  (concat [:C :F :G :C]                  ; intro 4
+          [:C :C :F :G :C :G]            ; verse1 6
+          [:C :G :Am :F :C :G :F :C]     ; chorus 8
+          [:C :C :F :G :C :G]            ; verse2 6
+          [:C :G :Am :F :C :G :F :C]     ; chorus 8
+          [:C :F :G :C]))                ; outro 4
+
+(def accomp-plan
+  {:bpm bpm :beat-sec beat-sec :total-beats total-beats
+   :bars (vec (map-indexed (fn [i ch] {:start-beat (* i 4) :beats 4
+                                       :chord (chord-table ch) :bass (- (first (chord-table ch)) 24)})
+                           progression))})
+
+(defn -main []
+  (let [build-dir (or (first *command-line-args*) "build")
+        repo-root (path/dirname (path/dirname (path/resolve "tools/compose_doubutsu.cljs")))
+        _ (fs/mkdirSync build-dir #js {:recursive true})
+        {:keys [valid? errors]} (song/validate song-spec)]
+    (when-not valid?
+      (js/console.error "song spec INVALID:" (pr-str errors)) (js/process.exit 1))
+    (fs/mkdirSync (path/join repo-root "content") #js {:recursive true})
+    (fs/writeFileSync (path/join repo-root "content" "doubutsu-no-uta.edn")
+                      (str ";; generated by tools/compose_doubutsu.cljs — ADR-2607164500\n" (pr-str song-spec) "\n"))
+    (let [scores (for [[idx [kind _len lines]] (map-indexed vector sections)
+                       singer [:melo :popo]
+                       :let [ls (filter #(= singer (:line/singer %)) lines) score (build-score ls)]
+                       :when score]
+                   {:id (str "s" idx "-" (name kind) "-" (name singer)) :singer (name singer)
+                    :offset-sec (- (* (section-starts idx) beat-sec) pre-roll-sec) :score score})
+          spoken (for [[idx [_k _l lines]] (map-indexed vector sections)
+                       l lines :when (= :spoken (:line/kind l))]
+                   {:text (str (:line/lyric l) "!") :singer (name (:line/singer l))
+                    :offset-sec (* (+ (section-starts idx) (:line/start-beat l)) beat-sec)})
+          timeline {:fps 30 :bpm bpm :beat-sec beat-sec :total-sec (* total-beats beat-sec)
+                    :sections (vec (map-indexed (fn [idx [kind len _]]
+                                                  {:kind (name kind) :start-sec (* (section-starts idx) beat-sec)
+                                                   :dur-sec (* len beat-sec)}) sections))
+                    ;; 各どうぶつの出現(verse1 の名前タイミング)
+                    :animals (vec (map-indexed (fn [i a]
+                                                 {:name (first (:name a)) :sound (first (:sound a))
+                                                  :at-sec (* (+ (section-starts 1) (* i 4)) beat-sec)})
+                                               animals))}]
+      (fs/writeFileSync (path/join build-dir "scores.json") (js/JSON.stringify (clj->js scores) nil 1))
+      (fs/writeFileSync (path/join build-dir "spoken.json") (js/JSON.stringify (clj->js spoken) nil 1))
+      (fs/writeFileSync (path/join build-dir "accomp.json") (js/JSON.stringify (clj->js accomp-plan) nil 1))
+      (fs/writeFileSync (path/join build-dir "timeline.json") (js/JSON.stringify (clj->js timeline) nil 1))
+      (println "doubutsu song spec valid. total" total-beats "beats =" (* total-beats beat-sec) "sec;"
+               (count scores) "scores," (count spoken) "spoken lines"))))
+
+(-main)

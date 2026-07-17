@@ -25,14 +25,25 @@
 (defn read-json [f]
   (js/JSON.parse (fs/readFileSync (path/join build-dir f) "utf8")))
 
-(defn post-json [url body]
-  (p/let [res (js/fetch url #js {:method "POST"
-                                 :headers #js {"content-type" "application/json"}
-                                 :body (js/JSON.stringify body)})]
-    (when-not (.-ok res)
-      (p/let [t (.text res)]
-        (throw (js/Error. (str url " -> " (.-status res) " " t)))))
-    res))
+(defn- delay-ms [ms] (js/Promise. (fn [res _] (js/setTimeout res ms))))
+
+;; public API 経由(tunnel + Cloudflare)は 524/5xx が出うる — 単一 VOICEVOX
+;; エンジンへの並列殺到でタイムアウトするため、synth は public モードで直列化
+;; (下記 -main)し、加えて transient 5xx を数回リトライする。
+(defn post-json
+  ([url body] (post-json url body 3))
+  ([url body tries]
+   (-> (js/fetch url #js {:method "POST"
+                          :headers #js {"content-type" "application/json"}
+                          :body (js/JSON.stringify body)})
+       (.then (fn [^js res]
+                (cond
+                  (.-ok res) res
+                  (and (>= (.-status res) 500) (> tries 1))
+                  (p/let [_ (delay-ms (+ 800 (* 400 (- 3 tries))))]
+                    (post-json url body (dec tries)))
+                  :else (p/let [t (.text res)]
+                          (throw (js/Error. (str url " -> " (.-status res) " " t))))))))))
 
 (defn synth-song [score-entry]
   (let [{:keys [id singer score]} (js->clj score-entry :keywordize-keys true)
@@ -161,12 +172,25 @@
     (cp/execFileSync "ffmpeg" (clj->js (map str args)) #js {:stdio "inherit"})
     (println "audio-final.wav done")))
 
+;; public モードは単一 VOICEVOX エンジンを共有するため直列(過負荷=524 回避)。
+;; ローカルモードは高速なので従来どおり並列。
+(defn- p-seq [f xs]
+  (p/loop [items (vec xs) acc []]
+    (if (empty? items)
+      acc
+      (p/let [r (f (first items))]
+        (p/recur (subvec items 1) (conj acc r))))))
+
 (defn -main []
   (let [scores (read-json "scores.json")
         spoken (read-json "spoken.json")]
     (render-accomp)
-    (p/let [score-files (p/all (map synth-song scores))
-            spoken-files (p/all (map-indexed synth-spoken spoken))]
-      (ffmpeg-mix score-files spoken-files))))
+    (if public-mode?
+      (p/let [score-files (p-seq synth-song scores)
+              spoken-files (p-seq (fn [[i e]] (synth-spoken i e)) (map-indexed vector spoken))]
+        (ffmpeg-mix score-files spoken-files))
+      (p/let [score-files (p/all (map synth-song scores))
+              spoken-files (p/all (map-indexed synth-spoken spoken))]
+        (ffmpeg-mix score-files spoken-files)))))
 
 (-main)

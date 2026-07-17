@@ -27,7 +27,8 @@
    :curriculum/title "どうぶつのこえ"
    :curriculum/goal "動物10種の名前と鳴き声"
    :curriculum/melody-source :public-domain   ; Old MacDonald 系 PD メロディ
-   :curriculum/lexicon ["いぬ" "ねこ" "うし" "ぶた" "ひよこ" "わんわん" "にゃあ" "もー" "ぶーぶー" "ぴよぴよ"]
+   :curriculum/lexicon ["いぬ" "ねこ" "うし" "ぶた" "ひよこ" "わんわん" "にゃあ" "もー" "ぶーぶー" "ぴよぴよ"
+                        "なきごえ" "たのしいな"]
    :curriculum/priority 85}
   {:curriculum/id :hamigaki
    :curriculum/title "はみがきのうた"
