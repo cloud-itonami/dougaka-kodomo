@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Phase C cadence 定期投稿の launchd 定義(ADR-2607164500 / 2607162200)。
+     即ロードしない ready 成果物 — VOICEVOX 常駐 & 負荷の落ち着いた時に opt-in で有効化。
+       cp deploy/com.gftd.dougaka-kodomo-cadence.plist ~/Library/LaunchAgents/
+       launchctl load ~/Library/LaunchAgents/com.gftd.dougaka-kodomo-cadence.plist
+     無効化: launchctl unload ~/Library/LaunchAgents/com.gftd.dougaka-kodomo-cadence.plist
+     毎日 10:00 に cadence.cljs を --publish で実行(未投稿トピックを1つ制作→gate→投稿)。
+     WorkingDirectory はこのリポジトリの実パスに合わせて書き換えること。
+     nbb / ffmpeg / rsvg-convert / ローカル VOICEVOX(127.0.0.1:50021) が要る。 -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.gftd.dougaka-kodomo-cadence</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/nbb</string>
+    <string>--classpath</string>
+    <string>src:resources</string>
+    <string>tools/cadence.cljs</string>
+    <string>--publish</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/junkawasaki/github/com-junkawasaki/orgs/gftdcojp/ai-gftd-dougaka-kodomo</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/local/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>10</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/tmp/dougaka-kodomo-cadence.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/dougaka-kodomo-cadence.err</string>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
