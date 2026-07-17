@@ -12,7 +12,12 @@
             [promesa.core :as p]))
 
 (def build-dir (or (first *command-line-args*) "build"))
+;; 第2引数:
+;;   省略 or http://127.0.0.1:50021 → ローカル VOICEVOX 直叩き(2ステップ)
+;;   https://api.murakumo.cloud → 公開 API(/v1/audio/song, /v1/audio/speech、
+;;     ADR-2607164500 Phase B)経由 = headless/cron で動く
 (def vv-url (or (second *command-line-args*) "http://127.0.0.1:50021"))
+(def public-mode? (str/includes? vv-url "murakumo.cloud"))
 
 (def sing-style {"melo" 3001 "popo" 3000})   ; frame_decode: ずんだもん/四国めたん あまあま
 (def speech-style {"melo" 1 "popo" 0})       ; speech: 同上
@@ -32,11 +37,16 @@
 (defn synth-song [score-entry]
   (let [{:keys [id singer score]} (js->clj score-entry :keywordize-keys true)
         out (path/join build-dir (str id ".wav"))]
-    (p/let [q (post-json (str vv-url "/sing_frame_audio_query?speaker=6000")
-                         (clj->js score))
-            qj (.json q)
-            s (post-json (str vv-url "/frame_synthesis?speaker=" (sing-style singer))
-                         qj)
+    (p/let [s (if public-mode?
+                ;; 公開 API: 1リクエストで score → wav
+                (post-json (str vv-url "/v1/audio/song")
+                           (clj->js {:query_speaker 6000 :speaker (sing-style singer)
+                                     :score score}))
+                ;; ローカル: sing_frame_audio_query → frame_synthesis
+                (p/let [q (post-json (str vv-url "/sing_frame_audio_query?speaker=6000")
+                                     (clj->js score))
+                        qj (.json q)]
+                  (post-json (str vv-url "/frame_synthesis?speaker=" (sing-style singer)) qj)))
             buf (.arrayBuffer s)]
       (fs/writeFileSync out (js/Buffer.from buf))
       out)))
@@ -45,12 +55,15 @@
   (let [{:keys [text singer]} (js->clj spoken-entry :keywordize-keys true)
         out (path/join build-dir (str "spk" i ".wav"))
         sp (speech-style singer)]
-    (p/let [q (js/fetch (str vv-url "/audio_query?speaker=" sp
-                             "&text=" (js/encodeURIComponent text))
-                        #js {:method "POST"})
-            qj (.json q)
-            _ (set! (.-speedScale qj) 0.95)
-            s (post-json (str vv-url "/synthesis?speaker=" sp) qj)
+    (p/let [s (if public-mode?
+                (post-json (str vv-url "/v1/audio/speech")
+                           (clj->js {:input text :speaker sp :speed 0.95}))
+                (p/let [q (js/fetch (str vv-url "/audio_query?speaker=" sp
+                                         "&text=" (js/encodeURIComponent text))
+                                    #js {:method "POST"})
+                        qj (.json q)
+                        _ (set! (.-speedScale qj) 0.95)]
+                  (post-json (str vv-url "/synthesis?speaker=" sp) qj)))
             buf (.arrayBuffer s)]
       (fs/writeFileSync out (js/Buffer.from buf))
       out)))
