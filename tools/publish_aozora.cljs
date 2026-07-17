@@ -18,6 +18,9 @@
 (def mp4-path (first *command-line-args*))
 (def post-text (fs/readFileSync (second *command-line-args*) "utf8"))
 (def handle (or (nth *command-line-args* 2 nil) "kodomo.aozora.app"))
+;; post rkey は曲ごとに一意(省略時は かずのうた。1曲=1 record)。
+(def post-rkey (nth *command-line-args* 3 "kazu-no-uta-001"))
+(def video-alt (nth *command-line-args* 4 "かずのうた — 1から10までかぞえる知育ソング"))
 (def keychain-service "aozora-studio-actor-key-kodomo")
 
 (defn hex->bytes [h]
@@ -88,7 +91,7 @@
             ;; video post
             post (xrpc! "com.atproto.repo.createRecord"
                         {:repo rdid :collection "app.bsky.feed.post"
-                         :rkey "kazu-no-uta-001"
+                         :rkey post-rkey
                          :record {:$type "app.bsky.feed.post"
                                   :text post-text
                                   :createdAt (.toISOString (js/Date.))
@@ -96,7 +99,7 @@
                                           :src src
                                           :mimeType "video/mp4"
                                           :video blob
-                                          :alt "かずのうた — 1から10までかぞえる知育ソング"
+                                          :alt video-alt
                                           :aspectRatio {:width 16 :height 9}}}}
                         jwt)]
       (println "blob cid:" blob-cid)

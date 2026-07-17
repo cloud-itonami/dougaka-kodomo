@@ -1,5 +1,8 @@
-;; Phase A kids-safety gate ランナー — 実測 facts を集めて kodomo.safety/gate に通す。
-;;   nbb --classpath src:resources tools/run_gate.cljs <build-dir> <mp4> <post-text-file>
+;; kids-safety gate ランナー — 実測 facts を集めて kodomo.safety/gate に通す。
+;;   nbb --classpath src:resources tools/run_gate.cljs <build-dir> <mp4> <post-text-file> \
+;;       [song-edn-path] [curriculum-topic-id]
+;; song-edn / topic を省略すると かずのうた 既定(後方互換)。曲を増やしても
+;; ゲートは 1 本で回せる(1曲=1固有コンポーザという運用の一般化)。
 ;; 計測: ffmpeg loudnorm (LUFS/TP) + signalstats YDIF (フラッシュ) + ffprobe (尺)。
 (ns run-gate
   (:require ["fs" :as fs]
@@ -12,6 +15,8 @@
 (def build-dir (first *command-line-args*))
 (def mp4 (second *command-line-args*))
 (def post-text (fs/readFileSync (nth *command-line-args* 2) "utf8"))
+(def song-edn-path (nth *command-line-args* 3 "content/kazu-no-uta.edn"))
+(def topic-id (keyword (nth *command-line-args* 4 "kazu-1-10")))
 
 (defn sh-out [cmd args]
   (str (cp/execFileSync cmd (clj->js (map str args)) #js {:stdio #js ["ignore" "pipe" "pipe"]})))
@@ -55,15 +60,23 @@
    "ろくしちはちきゅうじゅう" ["ろく" "しち" "はち" "きゅう" "じゅう"]
    "いちからじゅうまで" ["いち" "から" "じゅう" "まで"]})
 
-(def song (edn/read-string (str/replace (fs/readFileSync "content/kazu-no-uta.edn" "utf8")
+;; 歌詞の tokenize: 既知の連結行は語彙単位に分割、空白区切りの行は split、
+;; それ以外は行そのものを 1 トークンとして扱う(未知語率が過大にならないよう
+;; 空白分割を汎用フォールバックにする — 曲固有の tokenize map は任意)。
+(defn tokenize-lyric [lyric]
+  (or (tokenize lyric)
+      (when (str/includes? lyric " ") (vec (remove str/blank? (str/split lyric #"\s+"))))
+      [lyric]))
+
+(def song (edn/read-string (str/replace (fs/readFileSync song-edn-path "utf8")
                                         #"^;;.*\n" "")))
 (def lyric-tokens
-  (vec (mapcat (fn [l] (tokenize (:line/lyric l) [(:line/lyric l)]))
+  (vec (mapcat (fn [l] (tokenize-lyric (:line/lyric l)))
                (mapcat :section/lines (:song/sections song)))))
 
 (def curriculum (edn/read-string (fs/readFileSync "resources/curriculum.edn" "utf8")))
 (def lexicon
-  (:curriculum/lexicon (first (filter #(= :kazu-1-10 (:curriculum/id %))
+  (:curriculum/lexicon (first (filter #(= topic-id (:curriculum/id %))
                                       (:curriculum/topics curriculum)))))
 
 ;; --- gate -------------------------------------------------------------------------

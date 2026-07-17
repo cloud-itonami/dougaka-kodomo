@@ -1,0 +1,238 @@
+;; いろのうた (8色) — Phase A の第2曲・決定論コンポーザ(ADR-2607164500)。
+;;   nbb --classpath src:resources tools/compose_iro.cljs <build-dir>
+;; compose_kazu.cljs と同じ出力形(scores/spoken/accomp/timeline.json + song EDN)を
+;; 出すが、内容は色・オリジナルメロディ。render_kazu_audio.cljs はこの build-dir を
+;; そのまま処理できる(汎用)。映像は render_iro_video.cljs。
+(ns compose-iro
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            [kodomo.song :as song]))
+
+(def bpm 96)
+(def beat-sec (/ 60.0 bpm))
+(def frames-per-beat (* beat-sec 93.75))
+
+(def midi->kw
+  {60 :C4 61 :C#4 62 :D4 63 :D#4 64 :E4 65 :F4 66 :F#4 67 :G4
+   68 :G#4 69 :A4 70 :A#4 71 :B4 72 :C5 73 :C#5 74 :D5})
+
+;; --- 色データ(表示色は render_iro_video と共有する語彙) ----------------------
+;; [歌詞 [[mora midi beats]...]]  — オリジナルメロディ(上行・跳ねる形)
+(def v1-colors
+  [["あか"   [["あ" 60 0.75] ["か" 64 0.75]]]
+   ["あお"   [["あ" 62 0.75] ["お" 65 0.75]]]
+   ["きいろ" [["き" 64 0.5] ["い" 64 0.5] ["ろ" 67 0.5]]]
+   ["みどり" [["み" 67 0.5] ["ど" 65 0.5] ["り" 64 0.5]]]])
+
+(def v2-colors
+  [["しろ"     [["し" 60 0.75] ["ろ" 64 0.75]]]
+   ["くろ"     [["く" 62 0.75] ["ろ" 65 0.75]]]
+   ["ぴんく"   [["ぴ" 67 0.5] ["ん" 69 0.5] ["く" 67 0.5]]]
+   ["おれんじ" [["お" 69 0.5] ["れ" 67 0.5] ["ん" 65 0.25] ["じ" 64 0.25]]]])
+
+(def recap1 ["あか あお きいろ みどり"
+             [["あ" 60 0.5] ["か" 64 0.5] ["あ" 62 0.5] ["お" 65 0.5]
+              ["き" 64 0.5] ["い" 64 0.25] ["ろ" 67 0.25] ["み" 67 0.5]
+              ["ど" 65 0.5] ["り" 64 1.0]]])
+
+(def recap2 ["しろ くろ ぴんく おれんじ"
+             [["し" 60 0.5] ["ろ" 64 0.5] ["く" 62 0.5] ["ろ" 65 0.5]
+              ["ぴ" 67 0.5] ["ん" 69 0.25] ["く" 67 0.25] ["お" 69 0.5]
+              ["れ" 67 0.5] ["ん" 65 0.5] ["じ" 64 1.0]]])
+
+;; サビ: 「いろ いろ たのしいな」
+(def chorus-a ["いろいろ" [["い" 67 0.5] ["ろ" 69 0.5] ["い" 71 0.5] ["ろ" 72 1.0]]])
+(def chorus-b ["たのしいな"
+               [["た" 72 0.5] ["の" 71 0.5] ["し" 69 0.5] ["い" 67 0.5] ["な" 65 1.0]]])
+
+(defn mk-line [start-beat singer kind [lyric notes]]
+  {:line/lyric lyric
+   :line/singer singer
+   :line/kind kind
+   :line/start-beat start-beat
+   :line/notes (mapv (fn [[mora midi beats]]
+                       {:note/mora mora :note/pitch (midi->kw midi)
+                        :note/midi midi :note/beats beats})
+                     notes)})
+
+(defn verse-lines
+  "4色 × (lead 2拍 + echo 2拍) + recap。section 相対 beat。"
+  [colors recap recap-start echo-recap?]
+  (let [color-lines
+        (mapcat (fn [i [lyric notes]]
+                  (let [b (* i 4)]
+                    [(mk-line b :melo :sung [lyric notes])
+                     (mk-line (+ b 2) :popo :sung [lyric notes])]))
+                (range) colors)
+        recap-lines (cond-> [(mk-line recap-start :melo :sung recap)]
+                      echo-recap? (conj (mk-line (+ recap-start 4) :popo :sung recap)))]
+    (vec (concat color-lines recap-lines))))
+
+(defn chorus-lines []
+  (vec (for [[bar singer l] [[0 :melo chorus-a] [1 :popo chorus-a]
+                             [2 :melo chorus-b] [3 :melo chorus-a]
+                             [4 :melo chorus-a] [5 :popo chorus-a]
+                             [6 :melo chorus-b] [7 :melo chorus-a]]]
+         (mk-line (* bar 4) singer :sung l))))
+
+;; アウトロ: 8色を掛け声で
+(def outro-colors ["あか" "あお" "きいろ" "みどり" "しろ" "くろ" "ぴんく" "おれんじ"])
+(def outro-spoken
+  (map vector
+       [1 3 5 7 9 11 13 15]
+       (cycle [:melo :popo])
+       outro-colors))
+
+(def sections
+  ;; [kind rel-len-beats lines]
+  [[:intro 16 []]
+   [:verse 28 (verse-lines v1-colors recap1 20 true)]
+   [:chorus 32 (chorus-lines)]
+   [:verse 28 (verse-lines v2-colors recap2 20 true)]
+   [:chorus 32 (chorus-lines)]
+   [:call-response 20
+    (vec (concat
+          (for [[b singer text] outro-spoken]
+            {:line/lyric text :line/singer singer :line/kind :spoken
+             :line/start-beat b})
+          [(mk-line 16 :melo :sung ["いろいろ" [["い" 67 0.75] ["ろ" 72 0.75] ["い" 72 0.75] ["ろ" 72 1.5]]])
+           (mk-line 16 :popo :sung ["いろいろ" [["い" 67 0.75] ["ろ" 72 0.75] ["い" 72 0.75] ["ろ" 72 1.5]]])]))]])
+
+(def section-starts (vec (reductions + 0 (map second sections))))
+(def total-beats (last section-starts))
+
+;; --- song spec (kodomo.song 検証対象) ---------------------------------------
+
+(def song-spec
+  {:song/id "iro-8-001"
+   :song/topic :iro
+   :song/language "ja"
+   :song/bpm bpm
+   :song/key :C
+   :song/sections
+   (mapv (fn [[kind _len lines]]
+           {:section/kind (if (= kind :intro) :verse kind)
+            :section/lines
+            (mapv (fn [l]
+                    (cond-> {:line/lyric (:line/lyric l)
+                             :line/singer (:line/singer l)}
+                      (:line/notes l)
+                      (assoc :line/notes
+                             (mapv #(select-keys % [:note/pitch :note/beats])
+                                   (:line/notes l)))))
+                  lines)})
+         (rest sections))})
+
+;; --- VOICEVOX score 生成(drift-free) ----------------------------------------
+
+(defn beats->frames [b] (js/Math.round (* b frames-per-beat)))
+(def pre-roll-frames (beats->frames 1))
+(def pre-roll-sec (/ pre-roll-frames 93.75))
+
+(defn build-score [lines]
+  (let [notes (sort-by :abs-beat
+                       (for [l lines
+                             :when (= :sung (:line/kind l))
+                             :let [start (:line/start-beat l)]
+                             [i n] (map-indexed vector (:line/notes l))
+                             :let [nb (reduce + (map :note/beats (take i (:line/notes l))))]]
+                         {:abs-beat (+ start nb)
+                          :beats (:note/beats n)
+                          :midi (:note/midi n)
+                          :mora (:note/mora n)}))]
+    (when (seq notes)
+      (let [out #js []]
+        (.push out #js {:key nil :frame_length pre-roll-frames :lyric ""})
+        (loop [cursor-f 0 ns' notes]
+          (if (empty? ns')
+            (do (.push out #js {:key nil :frame_length 20 :lyric ""})
+                {:notes out})
+            (let [{:keys [abs-beat beats midi mora]} (first ns')
+                  start-f (beats->frames abs-beat)
+                  end-f (beats->frames (+ abs-beat beats))]
+              (when (> start-f cursor-f)
+                (.push out #js {:key nil :frame_length (- start-f cursor-f) :lyric ""}))
+              (.push out #js {:key midi :frame_length (max 1 (- end-f (max start-f cursor-f)))
+                              :lyric mora})
+              (recur (max end-f cursor-f) (rest ns')))))))))
+
+;; --- 伴奏 --------------------------------------------------------------------
+
+(def chord-table {:C [60 64 67] :F [65 69 72] :G [67 71 74] :Am [57 60 64] :Dm [62 65 69]})
+(def progression
+  (concat [:C :Am :F :G]                    ; intro 4
+          [:C :Am :F :G :C :F :G]           ; verse1 7
+          [:C :G :Am :F :C :G :F :C]        ; chorus 8
+          [:C :Am :F :G :C :F :G]           ; verse2 7
+          [:C :G :Am :F :C :G :F :C]        ; chorus 8
+          [:C :F :G :C :C]))                ; outro 5
+
+(def accomp-plan
+  {:bpm bpm :beat-sec beat-sec :total-beats total-beats
+   :bars (vec (map-indexed
+               (fn [i ch]
+                 {:start-beat (* i 4) :beats 4
+                  :chord (chord-table ch) :bass (- (first (chord-table ch)) 24)})
+               progression))})
+
+;; --- 出力 --------------------------------------------------------------------
+
+(defn -main []
+  (let [build-dir (or (first *command-line-args*) "build")
+        repo-root (path/dirname (path/dirname (path/resolve "tools/compose_iro.cljs")))
+        _ (fs/mkdirSync build-dir #js {:recursive true})
+        {:keys [valid? errors]} (song/validate song-spec)]
+    (when-not valid?
+      (js/console.error "song spec INVALID:" (pr-str errors))
+      (js/process.exit 1))
+    (fs/mkdirSync (path/join repo-root "content") #js {:recursive true})
+    (fs/writeFileSync (path/join repo-root "content" "iro-no-uta.edn")
+                      (str ";; generated by tools/compose_iro.cljs — ADR-2607164500 Phase A #2\n"
+                           (pr-str song-spec) "\n"))
+    (let [scores
+          (for [[idx [kind _len lines]] (map-indexed vector sections)
+                singer [:melo :popo]
+                :let [ls (filter #(= singer (:line/singer %)) lines)
+                      score (build-score ls)]
+                :when score]
+            {:id (str "s" idx "-" (name kind) "-" (name singer))
+             :singer (name singer)
+             :offset-sec (- (* (section-starts idx) beat-sec) pre-roll-sec)
+             :score score})
+          spoken
+          (for [[idx [_kind _len lines]] (map-indexed vector sections)
+                l lines
+                :when (= :spoken (:line/kind l))]
+            {:text (str (:line/lyric l) "!")
+             :singer (name (:line/singer l))
+             :offset-sec (* (+ (section-starts idx) (:line/start-beat l)) beat-sec)})
+          timeline
+          {:fps 30 :bpm bpm :beat-sec beat-sec
+           :total-sec (* total-beats beat-sec)
+           :sections (vec (map-indexed
+                           (fn [idx [kind len _]]
+                             {:kind (name kind)
+                              :start-sec (* (section-starts idx) beat-sec)
+                              :dur-sec (* len beat-sec)})
+                           sections))
+           ;; 色の出現(verse1: 4色、verse2: 4色) — render_iro_video が使う
+           :colors (vec (concat
+                         (for [i (range 4)]
+                           {:name (first (nth v1-colors i)) :at-sec (* (+ (section-starts 1) (* i 4)) beat-sec)})
+                         (for [i (range 4)]
+                           {:name (first (nth v2-colors i)) :at-sec (* (+ (section-starts 3) (* i 4)) beat-sec)})))
+           :outro-colors (vec (for [[b _ text] outro-spoken]
+                                {:name text :at-sec (* (+ (section-starts 5) b) beat-sec)}))}]
+      (fs/writeFileSync (path/join build-dir "scores.json")
+                        (js/JSON.stringify (clj->js scores) nil 1))
+      (fs/writeFileSync (path/join build-dir "spoken.json")
+                        (js/JSON.stringify (clj->js spoken) nil 1))
+      (fs/writeFileSync (path/join build-dir "accomp.json")
+                        (js/JSON.stringify (clj->js accomp-plan) nil 1))
+      (fs/writeFileSync (path/join build-dir "timeline.json")
+                        (js/JSON.stringify (clj->js timeline) nil 1))
+      (println "iro song spec valid. total" total-beats "beats ="
+               (* total-beats beat-sec) "sec;"
+               (count scores) "scores," (count spoken) "spoken lines"))))
+
+(-main)

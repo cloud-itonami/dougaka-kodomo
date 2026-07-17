@@ -20,7 +20,8 @@
    :curriculum/title "いろのうた"
    :curriculum/goal "基本色8色の名前"
    :curriculum/melody-source :original
-   :curriculum/lexicon ["あか" "あお" "きいろ" "みどり" "しろ" "くろ" "ぴんく" "おれんじ" "いろ" "どれ"]
+   :curriculum/lexicon ["あか" "あお" "きいろ" "みどり" "しろ" "くろ" "ぴんく" "おれんじ"
+                        "いろ" "いろいろ" "たのしいな" "どれ"]
    :curriculum/priority 80}
   {:curriculum/id :doubutsu-koe
    :curriculum/title "どうぶつのこえ"
