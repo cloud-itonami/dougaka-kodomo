@@ -7,6 +7,7 @@
 ;; service "aozora-studio-actor-key-kodomo"（studio の慣習と同一、無ければ生成して保存）。
 (ns publish-aozora
   (:require ["fs" :as fs]
+            ["path" :as path]
             ["child_process" :as cp]
             ["@noble/curves/ed25519.js" :refer [ed25519]]
             [clojure.string :as str]
@@ -26,21 +27,50 @@
 (defn hex->bytes [h]
   (js/Uint8Array.from (map #(js/parseInt (apply str %) 16) (partition 2 h))))
 
-(defn keychain-seed! []
+;; headless fleet node(GUI ログインセッション無し、SSH のみ)ではログイン
+;; Keychain がロックされたままで `security add-generic-password` が
+;; "Write permissions error" で失敗する(main-2 のような対話セッションでは
+;; 発生しない)。同一 kodomo actor identity をノード間で共有する必要があるため
+;; (別 seed を生成すると別 DID になり account continuity が壊れる)、
+;; 優先順位: env var 明示指定 > Keychain > ローカル file fallback
+;; (~/.murakumo/secrets/、chmod 600、secrets-location-map skill の
+;; cloud-itonami-lei 個別 identity mirror と同型パターン)。
+(defn secret-file-path []
+  (path/join (or (aget js/process.env "HOME") ".") ".murakumo" "secrets" (str keychain-service ".hex")))
+
+(defn keychain-read []
   (let [r (cp/spawnSync "security" #js ["find-generic-password" "-s" keychain-service "-w"]
                         #js {:encoding "utf8"})]
-    (if (zero? (.-status r))
-      (str/trim (.-stdout r))
+    (when (zero? (.-status r)) (str/trim (.-stdout r)))))
+
+(defn keychain-write! [hex]
+  (let [add (cp/spawnSync "security"
+                          #js ["add-generic-password" "-s" keychain-service
+                               "-a" "kodomo" "-w" hex "-U"]
+                          #js {:encoding "utf8"})]
+    (zero? (.-status add))))
+
+(defn file-read []
+  (let [f (secret-file-path)]
+    (when (fs/existsSync f) (str/trim (fs/readFileSync f "utf8")))))
+
+(defn file-write! [hex]
+  (let [f (secret-file-path)]
+    (fs/mkdirSync (path/dirname f) #js {:recursive true})
+    (fs/writeFileSync f hex #js {:mode 384})   ; 0600 octal
+    (fs/chmodSync f 384)))
+
+(defn keychain-seed! []
+  (or (aget js/process.env "AOZORA_ACTOR_SEED_HEX")
+      (keychain-read)
+      (file-read)
       (let [raw (js/crypto.getRandomValues (js/Uint8Array. 32))
             hex (apply str (map #(.padStart (.toString % 16) 2 "0") raw))
-            add (cp/spawnSync "security"
-                              #js ["add-generic-password" "-s" keychain-service
-                                   "-a" "kodomo" "-w" hex "-U"]
-                              #js {:encoding "utf8"})]
-        (when-not (zero? (.-status add))
-          (throw (js/Error. (str "keychain add failed: " (.-stderr add)))))
-        (println "new actor seed generated and stored in Keychain:" keychain-service)
-        hex))))
+            kc-ok? (keychain-write! hex)]
+        (file-write! hex)
+        (println "new actor seed generated, stored in"
+                 (if kc-ok? "Keychain" "local file fallback") ":" keychain-service)
+        hex)))
 
 (defn xrpc! [ep body jwt]
   (p/let [res (js/fetch (str service "/xrpc/" ep)

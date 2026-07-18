@@ -18,6 +18,25 @@
 (def appview "https://appview.aozora.app")
 (def handle "kodomo.aozora.app")
 
+;; headless fleet ノードには launchd (gui/user domain。GUI ログインセッションが
+;; 無いため bootstrap 不可 — asher で実測) の常駐エンジンが使えないため、cron
+;; 起動の cadence 自身が VOICEVOX 未起動を検知して起動する(自己修復)。
+(defn ensure-voicevox! []
+  (p/let [ctrl (js/AbortController.)
+          _ (js/setTimeout #(.abort ctrl) 2000)
+          up? (-> (js/fetch "http://127.0.0.1:50021/version" #js {:signal (.-signal ctrl)})
+                  (.then (fn [r] (.-ok r)))
+                  (.catch (fn [_] false)))]
+    (when-not up?
+      (println "▶ VOICEVOX not responding — starting resident engine")
+      (let [engine-dir (path/join (aget js/process.env "HOME") ".murakumo" "voicevox-engine")]
+        (when (fs/existsSync (path/join engine-dir "run"))
+          (let [child (cp/spawn (path/join engine-dir "run")
+                                #js ["--host" "127.0.0.1" "--port" "50021"]
+                                #js {:cwd engine-dir :detached true :stdio "ignore"})]
+            (.unref child)
+            (p/let [_ (js/Promise. (fn [res _] (js/setTimeout res 9000)))] nil)))))))
+
 (def songs
   (:songs (edn/read-string (fs/readFileSync (path/join repo-root "resources" "songs.edn") "utf8"))))
 
@@ -32,7 +51,8 @@
                     feed))))
 
 (defn -main []
-  (p/let [done (posted-rkeys)]
+  (p/let [_ (ensure-voicevox!)
+          done (posted-rkeys)]
     (let [pending (->> songs
                        (remove #(contains? done (:rkey %)))
                        (sort-by :priority >))]

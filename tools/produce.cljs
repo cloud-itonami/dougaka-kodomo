@@ -21,6 +21,12 @@
 
 (def repo-root (path/dirname (path/dirname (path/resolve "tools/produce.cljs"))))
 (def build-dir (path/join "/tmp" (str "dougaka-produce-" (name topic-id))))
+;; kotobase-client は sibling repo: <root>/orgs/<org>/ai-gftd-dougaka-kodomo から
+;; <root>/orgs/kotoba-lang/kotobase-client/src への相対パス(絶対パスのマシン依存を避ける。
+;; env var で上書き可能 — 標準 orgs/<org>/<repo> レイアウトを維持していれば汎用)。
+(def kotobase-client-src
+  (or (aget js/process.env "KOTOBASE_CLIENT_SRC")
+      (path/join repo-root ".." ".." "kotoba-lang" "kotobase-client" "src")))
 
 (def songs
   (:songs (edn/read-string (fs/readFileSync (path/join repo-root "resources" "songs.edn") "utf8"))))
@@ -70,7 +76,7 @@
         (run! "publish"
               "nbb"
               [(str "--classpath")
-               "/Users/junkawasaki/github/com-junkawasaki/orgs/kotoba-lang/kotobase-client/src"
+               kotobase-client-src
                (str repo-root "/tools/publish_aozora.cljs")
                mp4 post-text-file "kodomo.aozora.app" (:rkey song) (:alt song)])
         (println (str "✓ posted " (:rkey song)))))))
