@@ -16,7 +16,7 @@
 
 ## 手動実行
 ```
-cd orgs/gftdcojp/ai-gftd-dougaka-kodomo
+cd orgs/cloud-itonami/dougaka-kodomo
 nbb --classpath src:resources tools/produce.cljs doubutsu-koe          # ドライラン(制作+gate、投稿しない)
 nbb --classpath src:resources tools/produce.cljs doubutsu-koe --publish # 投稿まで
 nbb --classpath src:resources tools/cadence.cljs --publish              # 次の未投稿を自動選択して投稿
