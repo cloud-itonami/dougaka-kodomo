@@ -2,7 +2,7 @@
 ;;   nbb tools/render_doubutsu_video.cljs <build-dir>
 ;; どうぶつカード(名前+簡易フェイス)が歌詞と同期して出現。キャストは共有。
 (ns render-doubutsu-video
-  (:require ["fs" :as fs] ["path" :as path] ["child_process" :as cp] [clojure.string :as str]))
+  (:require ["fs" :as fs] ["path" :as path] ["child_process" :as cp] [kotoba.lang.text :as str]))
 
 (def build-dir (or (first *command-line-args*) "build"))
 (def W 1280) (def H 720) (def beat (/ 60.0 100))

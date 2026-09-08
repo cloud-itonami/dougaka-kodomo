@@ -11,7 +11,7 @@
             ["path" :as path]
             ["child_process" :as cp]
             [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def args (vec *command-line-args*))
 (def topic-id (keyword (first args)))
