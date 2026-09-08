@@ -6,7 +6,7 @@
   (:require ["fs" :as fs]
             ["path" :as path]
             ["child_process" :as cp]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def build-dir (or (first *command-line-args*) "build"))
 (def W 1280) (def H 720) (def beat 0.6)

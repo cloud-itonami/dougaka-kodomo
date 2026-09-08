@@ -10,7 +10,7 @@
             ["path" :as path]
             ["child_process" :as cp]
             ["@noble/curves/ed25519.js" :refer [ed25519]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [promesa.core :as p]
             [kotobase.cacao :as cacao]
             [kotobase.cid :as cid]))

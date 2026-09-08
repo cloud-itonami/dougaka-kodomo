@@ -8,7 +8,7 @@
   (:require ["fs" :as fs]
             ["path" :as path]
             ["child_process" :as cp]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [promesa.core :as p]))
 
 (def build-dir (or (first *command-line-args*) "build"))
