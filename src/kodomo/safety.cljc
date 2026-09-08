@@ -5,7 +5,7 @@
    入力は計測済みの facts map（実測は :exec 側が ffmpeg/loudnorm 等で行う）。
    1つでも fail があれば :hold（auto-publish しない）。
    escalate-on-flag の publish gate 骨格は aozora ADR-2607162200 と同型。"
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; --- 個別チェック（それぞれ {:check .. :ok? bool :detail ..} を返す） --------
 

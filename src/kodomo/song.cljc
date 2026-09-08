@@ -4,7 +4,7 @@
    歌詞 + メロディ EDN + 絵コンテ（storyboard）に置き換える。
    外部 IO はしない: LLM 呼び出しは request spec を返すだけで、
    実行は :exec 側（murakumo text engine）が担う。"
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; --- song spec shape -------------------------------------------------------
 ;; {:song/id        "abc-song-001"
