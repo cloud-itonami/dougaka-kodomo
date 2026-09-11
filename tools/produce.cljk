@@ -1,5 +1,5 @@
 ;; Phase C 汎用 produce ドライバ(ADR-2607164500 / 2607162200)。
-;;   nbb --classpath src:resources tools/produce.cljk <topic-id> [--publish] [--voice <url>]
+;;   kbb --backend sci --classpath src:resources tools/produce.cljk <topic-id> [--publish] [--voice <url>]
 ;; resources/songs.edn の1エントリを compose→audio→video→gate→publish で一気通貫。
 ;; gate は HARD gate: :hold なら publish せず非ゼロ終了(escalate、ADR-2607162200)。
 ;; --voice 既定 http://127.0.0.1:50021(ローカル VOICEVOX、高速・確実)。cadence が

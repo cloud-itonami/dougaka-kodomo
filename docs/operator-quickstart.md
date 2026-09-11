@@ -37,7 +37,7 @@ cd dougaka-kodomo
 **nbb が第一経路**（CLAUDE.md の runtime 優先順位）。JVM は互換確認用。
 
 ```bash
-nbb --classpath src:test test/run.cljk
+kbb --backend sci --classpath src:test test/run.cljk
 ```
 
 実出力:
@@ -54,7 +54,7 @@ Ran 17 tests containing 28 assertions.
 JVM 側も同じ数を返す（初回は test-runner の取得でネットワークが要る）:
 
 ```bash
-clojure -M:test
+kbb -M:test
 ```
 
 ```
@@ -68,7 +68,7 @@ Ran 17 tests containing 28 assertions.
 0 failures, 0 errors.
 ```
 
-⚠ `clojure -M:test` は `.cpcache/` を作る。`.gitignore` に入れてあるので
+⚠ `kbb -M:test` は `.cpcache/` を作る。`.gitignore` に入れてあるので
 `git status` は汚れない。
 
 この 17 本は **`kodomo.safety` の拒否方向を純関数の水準で既に固定している**
@@ -81,9 +81,9 @@ Ran 17 tests containing 28 assertions.
 composer は純データ。VOICEVOX も ffmpeg も呼ばない。
 
 ```bash
-nbb --classpath src:resources tools/compose_kazu.cljk     /tmp/kodomo-build-kazu
-nbb --classpath src:resources tools/compose_iro.cljk      /tmp/kodomo-build-iro
-nbb --classpath src:resources tools/compose_doubutsu.cljk /tmp/kodomo-build-doubutsu
+kbb --backend sci --classpath src:resources tools/compose_kazu.cljk     /tmp/kodomo-build-kazu
+kbb --backend sci --classpath src:resources tools/compose_iro.cljk      /tmp/kodomo-build-iro
+kbb --backend sci --classpath src:resources tools/compose_doubutsu.cljk /tmp/kodomo-build-doubutsu
 ```
 
 実出力（3 本とも exit 0）:
@@ -139,7 +139,7 @@ ffmpeg -hide_banner -loglevel error \
 
 ```bash
 cd <repo>
-nbb tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
+kbb --backend sci tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
 ```
 
 ⚠ **この workspace では高負荷 build を resource governor 経由で回す**
@@ -149,7 +149,7 @@ nbb tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
 
 ```bash
 node <superproject>/scripts/resource-guard.mjs run build -- \
-  nbb tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
+  kbb --backend sci tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
 ```
 
 実出力:
@@ -187,7 +187,7 @@ size=4364502
 printf 'かずのうた 🍎 いち・に・さん!\nメロとポポとミミといっしょに、1から10まで かぞえよう!\nこどもむけ知育ソング(0〜4さい向け)\n#こどもむけ #知育ソング #かずのうた\nVOICEVOX:ずんだもん / VOICEVOX:四国めたん\n' \
   > /tmp/kodomo-build-kazu/post-text.txt
 
-nbb --classpath src:resources tools/run_gate.cljk \
+kbb --backend sci --classpath src:resources tools/run_gate.cljk \
   /tmp/kodomo-build-kazu \
   /tmp/kodomo-build-kazu/kazu-no-uta.mp4 \
   /tmp/kodomo-build-kazu/post-text.txt \

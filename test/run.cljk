@@ -1,5 +1,5 @@
-;; nbb テストランナー（第一経路。JVM 互換は clojure -M:test）
-;;   nbb --classpath src:test test/run.cljk
+;; nbb テストランナー（第一経路。JVM 互換は kbb -M:test）
+;;   kbb --backend sci --classpath src:test test/run.cljk
 (ns run
   (:require [clojure.test :as t]
             [kodomo.song-test]

@@ -1,5 +1,5 @@
 ;; どうぶつのこえ 映像レンダラ(ADR-2607164500)。
-;;   nbb tools/render_doubutsu_video.cljk <build-dir>
+;;   kbb --backend sci tools/render_doubutsu_video.cljk <build-dir>
 ;; どうぶつカード(名前+簡易フェイス)が歌詞と同期して出現。キャストは共有。
 (ns render-doubutsu-video
   (:require ["fs" :as fs] ["path" :as path] ["child_process" :as cp] [kotoba.lang.text :as str]))

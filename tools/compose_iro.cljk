@@ -1,5 +1,5 @@
 ;; いろのうた (8色) — Phase A の第2曲・決定論コンポーザ(ADR-2607164500)。
-;;   nbb --classpath src:resources tools/compose_iro.cljk <build-dir>
+;;   kbb --backend sci --classpath src:resources tools/compose_iro.cljk <build-dir>
 ;; compose_kazu.cljs と同じ出力形(scores/spoken/accomp/timeline.json + song EDN)を
 ;; 出すが、内容は色・オリジナルメロディ。render_kazu_audio.cljs はこの build-dir を
 ;; そのまま処理できる(汎用)。映像は render_iro_video.cljs。
