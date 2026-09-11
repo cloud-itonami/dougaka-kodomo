@@ -1,5 +1,5 @@
 ;; Phase A 音声レンダラ — compose_kazu.cljs の出力プランを実行する IO 層。
-;;   nbb tools/render_kazu_audio.cljs <build-dir> [voicevox-url]
+;;   nbb tools/render_kazu_audio.cljk <build-dir> [voicevox-url]
 ;; 1) VOICEVOX ソング合成 (sing_frame_audio_query 6000 → frame_synthesis)
 ;; 2) VOICEVOX スピーチ (audio_query → synthesis)
 ;; 3) 伴奏シンセ (chord pad + bass + glock + soft kick, 44.1kHz mono PCM)

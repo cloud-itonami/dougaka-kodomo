@@ -19,11 +19,11 @@ Cocomelon / ChuChu TV / Pinkfong / Infobells / El Reino Infantil 型の
 
 ## 構成
 
-- `src/kodomo/song.cljc` — song spec（歌詞・メロディ EDN）の生成 planner と検証
+- `src/kodomo/song.cljk` — song spec（歌詞・メロディ EDN）の生成 planner と検証
   （音域・反復率・セクション構造）。純データ、外部 IO なし。
-- `src/kodomo/safety.cljc` — kids-safety gate。決定論チェックのみ
+- `src/kodomo/safety.cljk` — kids-safety gate。決定論チェックのみ
   （loudness / 尺 / フラッシュ頻度 / 語彙年齢 / metadata / クレジット）。
-- `src/kodomo/pipeline.cljc` — produce stage-order と advance reducer
+- `src/kodomo/pipeline.cljk` — produce stage-order と advance reducer
   （yukkuri `graphs/produce.cljc` と同型。`:score-safety` が hard gate）。
 - `resources/characters.edn` — オリジナルキャラクターファミリー（機械可読 SSoT。
   yukkuri `content/channels.edn` と同型）。
@@ -34,7 +34,7 @@ Cocomelon / ChuChu TV / Pinkfong / Infobells / El Reino Infantil 型の
 
 ```bash
 # テスト（nbb が第一経路。JVM は互換）
-nbb --classpath src:test test/run.cljs
+nbb --classpath src:test test/run.cljk
 clojure -M:test
 ```
 

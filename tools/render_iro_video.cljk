@@ -1,11 +1,15 @@
-;; どうぶつのこえ 映像レンダラ(ADR-2607164500)。
-;;   nbb tools/render_doubutsu_video.cljs <build-dir>
-;; どうぶつカード(名前+簡易フェイス)が歌詞と同期して出現。キャストは共有。
-(ns render-doubutsu-video
-  (:require ["fs" :as fs] ["path" :as path] ["child_process" :as cp] [kotoba.lang.text :as str]))
+;; いろのうた 映像レンダラ(ADR-2607164500 Phase A #2)。
+;;   nbb tools/render_iro_video.cljk <build-dir>
+;; compose-scene 設計: cutout layer(メロ/ポポ/ミミ) + BPM 同期 bounce +
+;; 歌詞と同期した色スウォッチ出現。timeline.json の :sections/:colors を消費。
+(ns render-iro-video
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            ["child_process" :as cp]
+            [kotoba.lang.text :as str]))
 
 (def build-dir (or (first *command-line-args*) "build"))
-(def W 1280) (def H 720) (def beat (/ 60.0 100))
+(def W 1280) (def H 720) (def beat (/ 60.0 96))
 
 (defn sh [cmd args]
   (cp/execFileSync cmd (clj->js (map str args)) #js {:stdio #js ["ignore" "ignore" "pipe"]}))
@@ -13,7 +17,7 @@
 (defn png [svg-name png-name w]
   (sh "rsvg-convert" ["-w" w "-o" (path/join build-dir png-name) (path/join build-dir svg-name)]))
 
-;; --- characters (共有キャスト) ----------------------------------------------
+;; --- characters (かずのうたと同じキャスト) -----------------------------------
 (def melo-svg
   (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 460'>"
        "<circle cx='180' cy='150' r='118' fill='#F4813F'/><circle cx='180' cy='168' r='94' fill='#FFE3C9'/>"
@@ -51,54 +55,58 @@
        "<ellipse cx='150' cy='345' rx='68' ry='72' fill='#fff' stroke='#E3D9CF' stroke-width='3'/>"
        "<ellipse cx='150' cy='360' rx='40' ry='46' fill='#FFF4E8'/></svg>"))
 
-;; --- どうぶつカード(名前+簡易フェイス) --------------------------------------
-;; [背景色 顔SVG片(cx=150,cy=115 中心)]
-(def animal-art
-  {"いぬ"   ["#C79A6B"
-             "<ellipse cx='95' cy='75' rx='24' ry='40' fill='#8A5A33'/><ellipse cx='205' cy='75' rx='24' ry='40' fill='#8A5A33'/><circle cx='150' cy='115' r='62' fill='#E8C79A'/><circle cx='128' cy='108' r='8' fill='#3A2B22'/><circle cx='172' cy='108' r='8' fill='#3A2B22'/><ellipse cx='150' cy='135' rx='16' ry='11' fill='#5A4636'/>"]
-   "ねこ"   ["#B4A7D6"
-             "<path d='M98,70 L118,110 L82,105 Z' fill='#9C8AC9'/><path d='M202,70 L182,110 L218,105 Z' fill='#9C8AC9'/><circle cx='150' cy='118' r='60' fill='#D8CCF0'/><circle cx='130' cy='112' r='7' fill='#3A2B22'/><circle cx='170' cy='112' r='7' fill='#3A2B22'/><path d='M143,128 L157,128 L150,136 Z' fill='#E86A8A'/>"]
-   "うし"   ["#F0C0C8"
-             "<ellipse cx='90' cy='80' rx='22' ry='16' fill='#E39AA8'/><ellipse cx='210' cy='80' rx='22' ry='16' fill='#E39AA8'/><circle cx='150' cy='118' r='60' fill='#FFF'/><circle cx='128' cy='105' r='16' fill='#C8C0BC'/><circle cx='128' cy='105' r='7' fill='#3A2B22'/><circle cx='172' cy='108' r='7' fill='#3A2B22'/><ellipse cx='150' cy='140' rx='30' ry='20' fill='#F0B8C0'/>"]
-   "ぶた"   ["#FFC7D6"
-             "<circle cx='150' cy='115' r='62' fill='#FFB3C7'/><path d='M112,80 L100,60 L124,72 Z' fill='#FF9FB6'/><path d='M188,80 L200,60 L176,72 Z' fill='#FF9FB6'/><circle cx='130' cy='108' r='7' fill='#3A2B22'/><circle cx='170' cy='108' r='7' fill='#3A2B22'/><ellipse cx='150' cy='135' rx='26' ry='18' fill='#FF8FB0'/><circle cx='142' cy='135' r='5' fill='#D96A8A'/><circle cx='158' cy='135' r='5' fill='#D96A8A'/>"]
-   "ひよこ" ["#FFE9A8"
-             "<circle cx='150' cy='118' r='62' fill='#FFD84D'/><circle cx='130' cy='110' r='7' fill='#3A2B22'/><circle cx='170' cy='110' r='7' fill='#3A2B22'/><path d='M138,128 L162,128 L150,142 Z' fill='#F5943B'/>"]})
+;; --- 色パレット(歌詞名 → 塗り/テキスト色/読み) ------------------------------
+(def palette
+  {"あか"     ["#E64B3C" "#fff"]
+   "あお"     ["#3B82C4" "#fff"]
+   "きいろ"   ["#FFD23F" "#5A4B00"]
+   "みどり"   ["#5DBB63" "#fff"]
+   "しろ"     ["#FFFFFF" "#7A7A7A"]
+   "くろ"     ["#3A3A3A" "#fff"]
+   "ぴんく"   ["#FF8FB6" "#fff"]
+   "おれんじ" ["#F5943B" "#fff"]})
 
-(defn animal-svg [nm]
-  (let [[bg face] (animal-art nm)]
-    (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 320'>"
-         "<rect x='8' y='8' width='284' height='260' rx='40' fill='" bg "'/>"
-         face
-         "<text x='150' y='240' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
-         " font-weight='800' font-size='48' fill='#3A2B22'>" nm "</text></svg>")))
+(defn swatch-svg [nm]
+  (let [[fill txt] (palette nm)]
+    (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'>"
+         "<rect x='14' y='14' width='272' height='272' rx='44' fill='" fill "'"
+         (when (= nm "しろ") " stroke='#E3D9CF' stroke-width='4'") "/>"
+         "<text x='150' y='185' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
+         " font-weight='800' font-size='64' fill='" txt "'>" nm "</text></svg>")))
 
+;; --- backgrounds -------------------------------------------------------------
 (defn bg-base [& body]
   (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'>"
        "<defs><linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'>"
-       "<stop offset='0' stop-color='#CDEBD6'/><stop offset='1' stop-color='#FFF7E6'/></linearGradient></defs>"
+       "<stop offset='0' stop-color='#DDEBFF'/><stop offset='1' stop-color='#FFF6E8'/></linearGradient></defs>"
        "<rect width='1280' height='720' fill='url(#sky)'/>"
        "<circle cx='1110' cy='104' r='60' fill='#FFD86B'/>"
        "<g fill='#fff' opacity='.9'><ellipse cx='250' cy='120' rx='95' ry='34'/><ellipse cx='820' cy='86' rx='78' ry='26'/></g>"
        "<ellipse cx='320' cy='800' rx='560' ry='210' fill='#9FD98A'/><ellipse cx='1030' cy='820' rx='600' ry='230' fill='#8CD07F'/>"
        (apply str body) "</svg>"))
+
 (def bg-title
   (bg-base
-   "<text x='640' y='330' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
-   " font-weight='800' font-size='104' fill='#FF8A5B' stroke='#fff' stroke-width='14' paint-order='stroke'>どうぶつのこえ</text>"
-   "<text x='640' y='410' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
-   " font-weight='600' font-size='44' fill='#4A6FA5' stroke='#fff' stroke-width='8' paint-order='stroke'>わんわん・にゃあ・もー!</text>"))
+   "<g>" (apply str (for [[i c] (map-indexed vector ["#E64B3C" "#F5943B" "#FFD23F" "#5DBB63" "#3B82C4" "#FF8FB6"])]
+                      (str "<circle cx='" (+ 250 (* i 150)) "' cy='210' r='30' fill='" c "'/>"))) "</g>"
+   "<text x='640' y='340' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
+   " font-weight='800' font-size='112' fill='#FF7FA8' stroke='#fff' stroke-width='14' paint-order='stroke'>いろのうた</text>"
+   "<text x='640' y='420' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
+   " font-weight='600' font-size='44' fill='#4A6FA5' stroke='#fff' stroke-width='8' paint-order='stroke'>あか・あお・きいろ…なにいろ?</text>"))
+
 (def bg-meadow (bg-base))
 (def bg-chorus
   (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'>"
        "<defs><linearGradient id='pk' x1='0' y1='0' x2='0' y2='1'>"
-       "<stop offset='0' stop-color='#FFF2E0'/><stop offset='1' stop-color='#E7F5E9'/></linearGradient></defs>"
+       "<stop offset='0' stop-color='#FFF0E9'/><stop offset='1' stop-color='#E9F5FF'/></linearGradient></defs>"
        "<rect width='1280' height='720' fill='url(#pk)'/>"
-       "<path d='M240,720 A400,400 0 0 1 1040,720' fill='none' stroke='#8CD07F' stroke-width='30'/>"
-       "<path d='M288,720 A352,352 0 0 1 992,720' fill='none' stroke='#FFD84D' stroke-width='30'/>"
-       "<path d='M336,720 A304,304 0 0 1 944,720' fill='none' stroke='#F5943B' stroke-width='30'/>"
+       "<path d='M240,720 A400,400 0 0 1 1040,720' fill='none' stroke='#E64B3C' stroke-width='28'/>"
+       "<path d='M276,720 A364,364 0 0 1 1004,720' fill='none' stroke='#F5943B' stroke-width='28'/>"
+       "<path d='M312,720 A328,328 0 0 1 968,720' fill='none' stroke='#FFD23F' stroke-width='28'/>"
+       "<path d='M348,720 A292,292 0 0 1 932,720' fill='none' stroke='#5DBB63' stroke-width='28'/>"
+       "<path d='M384,720 A256,256 0 0 1 896,720' fill='none' stroke='#3B82C4' stroke-width='28'/>"
        "<text x='640' y='150' text-anchor='middle' font-family='Hiragino Sans, sans-serif'"
-       " font-weight='800' font-size='76' fill='#FF7FA8' stroke='#fff' stroke-width='12' paint-order='stroke'>なきごえ たのしいな!</text></svg>"))
+       " font-weight='800' font-size='80' fill='#FF7FA8' stroke='#fff' stroke-width='12' paint-order='stroke'>いろいろ たのしいな!</text></svg>"))
 
 (defn gen-assets! []
   (write-svg "melo.svg" melo-svg) (write-svg "popo.svg" popo-svg) (write-svg "mimi.svg" mimi-svg)
@@ -108,12 +116,14 @@
                        ["popo.svg" "popo-m.png" 200] ["popo.svg" "popo-l.png" 250]
                        ["mimi.svg" "mimi-m.png" 220] ["mimi.svg" "mimi-l.png" 280]]]
     (png svg out w))
-  (doseq [nm (keys animal-art)]
-    (let [f (str "an-" (hash nm))]
-      (write-svg (str f ".svg") (animal-svg nm))
-      (png (str f ".svg") (str f "-m.png") 220)))
+  (doseq [nm (keys palette)]
+    (let [f (str "sw-" (hash nm))]
+      (write-svg (str f ".svg") (swatch-svg nm))
+      (png (str f ".svg") (str f "-m.png") 180)
+      (png (str f ".svg") (str f "-big.png") 320)))
   (println "assets rendered"))
-(defn an-png [nm] (str "an-" (hash nm) "-m.png"))
+
+(defn sw-png [nm sz] (str "sw-" (hash nm) "-" sz ".png"))
 
 (defn bounce [y amp] (str y "-" amp "*abs(sin(PI*t/" beat "))"))
 (defn bob [y amp phase] (str y "+" amp "*sin(2*PI*t/1.2+" phase ")"))
@@ -138,38 +148,53 @@
   (gen-assets!)
   (let [tl (js->clj (js/JSON.parse (fs/readFileSync (path/join build-dir "timeline.json") "utf8")) :keywordize-keys true)
         secs (:sections tl)
-        animals ["いぬ" "ねこ" "うし" "ぶた" "ひよこ"]
-        x-of (fn [i n] (+ 90 (* (/ (- W 380) (max 1 (dec n))) i)))
-        verse-chars [{:img "melo-m.png" :x 30 :y-expr (bounce 340 22)}
-                     {:img "mimi-m.png" :x 1010 :y-expr (bounce 350 26)}]
+        sec-at (fn [i] (:start-sec (nth secs i)))
+        v1 (nth secs 1) v2 (nth secs 3)
+        x-of (fn [i n] (+ 130 (* (/ (- W 400) (max 1 (dec n))) i)))
+        verse-chars [{:img "melo-m.png" :x 40 :y-expr (bounce 330 22)}
+                     {:img "mimi-m.png" :x 1000 :y-expr (bounce 340 26)}]
         chorus-chars [{:img "melo-l.png" :x 210 :y-expr (bounce 280 30)}
                       {:img "popo-l.png" :x 540 :y-expr (bounce 360 26)}
                       {:img "mimi-l.png" :x 840 :y-expr (bounce 300 32)}]
-        verse (fn [n]
-                (concat verse-chars
-                        (map-indexed (fn [i nm]
-                                       {:img (an-png nm) :x (x-of i 5) :y-expr (bob 130 8 i)
-                                        :enable (str "gte(t," (* i 4 beat) ")")}) animals)))]
+        v1-colors ["あか" "あお" "きいろ" "みどり"]
+        v2-colors ["しろ" "くろ" "ぴんく" "おれんじ"]]
+    ;; intro
     (render-section! "sec0.mp4" "bg-title.png" (:dur-sec (nth secs 0))
-                     [{:img "melo-m.png" :x 300 :y-expr (bounce 440 22)}
-                      {:img "popo-m.png" :x 590 :y-expr (bounce 480 18)}
-                      {:img "mimi-m.png" :x 830 :y-expr (bounce 450 26)}])
-    (render-section! "sec1.mp4" "bg-meadow.png" (:dur-sec (nth secs 1)) (verse 5))
+                     [{:img "melo-m.png" :x 300 :y-expr (bounce 430 22)}
+                      {:img "popo-m.png" :x 590 :y-expr (bounce 470 18)}
+                      {:img "mimi-m.png" :x 830 :y-expr (bounce 440 26)}])
+    ;; verse1: 4 swatches pop at local 0,4,8,12 beats (=color intervals)
+    (render-section! "sec1.mp4" "bg-meadow.png" (:dur-sec v1)
+                     (concat verse-chars
+                             (map-indexed (fn [i nm]
+                                            {:img (sw-png nm "m") :x (x-of i 4) :y-expr (bob 150 8 i)
+                                             :enable (str "gte(t," (* i 4 beat) ")")}) v1-colors)))
+    ;; chorus
     (render-section! "sec2.mp4" "bg-chorus.png" (:dur-sec (nth secs 2)) chorus-chars)
-    (render-section! "sec3.mp4" "bg-meadow.png" (:dur-sec (nth secs 3)) (verse 5))
+    ;; verse2
+    (render-section! "sec3.mp4" "bg-meadow.png" (:dur-sec v2)
+                     (concat verse-chars
+                             (map-indexed (fn [i nm]
+                                            {:img (sw-png nm "m") :x (x-of i 4) :y-expr (bob 150 8 i)
+                                             :enable (str "gte(t," (* i 4 beat) ")")}) v2-colors)))
+    ;; chorus2
     (render-section! "sec4.mp4" "bg-chorus.png" (:dur-sec (nth secs 4)) chorus-chars)
+    ;; outro: all 8 swatches in a row + big current
     (render-section! "sec5.mp4" "bg-meadow.png" (:dur-sec (nth secs 5))
                      (concat [{:img "melo-m.png" :x 160 :y-expr (bounce 350 22)}
                               {:img "mimi-m.png" :x 980 :y-expr (bounce 360 26)}]
-                             (map-indexed (fn [i nm] {:img (an-png nm) :x (+ 70 (* 230 i)) :y-expr (bob 120 6 i)})
-                                          animals)))
+                             (map-indexed (fn [i nm]
+                                            {:img (sw-png nm "m") :x (+ 40 (* 150 i)) :y-expr (bob 90 6 i)})
+                                          (concat v1-colors v2-colors))))
+    ;; concat + mux
     (fs/writeFileSync (path/join build-dir "concat.txt")
                       (str/join "\n" (for [i (range 6)] (str "file 'sec" i ".mp4'"))))
     (sh "ffmpeg" ["-f" "concat" "-safe" "0" "-i" (path/join build-dir "concat.txt")
                   "-c" "copy" "-y" (path/join build-dir "video-noaudio.mp4")])
-    (sh "ffmpeg" ["-i" (path/join build-dir "video-noaudio.mp4") "-i" (path/join build-dir "audio-final.wav")
+    (sh "ffmpeg" ["-i" (path/join build-dir "video-noaudio.mp4")
+                  "-i" (path/join build-dir "audio-final.wav")
                   "-c:v" "copy" "-c:a" "aac" "-b:a" "192k" "-movflags" "+faststart" "-shortest" "-y"
-                  (path/join build-dir "doubutsu-no-uta.mp4")])
-    (println "doubutsu-no-uta.mp4 done")))
+                  (path/join build-dir "iro-no-uta.mp4")])
+    (println "iro-no-uta.mp4 done")))
 
 (-main)

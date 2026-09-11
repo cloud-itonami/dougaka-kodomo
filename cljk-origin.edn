@@ -1,0 +1,22 @@
+{:format :kotoba.cljk-origin/v1
+ :renamed-on "2026-09-11"
+ :decision "adr-2609111500-cljk-rename-all-clojure-source (com-junkawasaki/root 90-docs/adr; owner instruction 2026-09-11)"
+ :rule "value = the extension the file had before the rename. A path ending in .clj.cljk or .cljs.cljk kept it in the name because both platform files existed (or the plain target was taken)."
+ :origins
+ {"src/kodomo/pipeline.cljk" ".cljc"
+  "src/kodomo/safety.cljk" ".cljc"
+  "src/kodomo/song.cljk" ".cljc"
+  "test/kodomo/safety_test.cljk" ".cljc"
+  "test/kodomo/song_test.cljk" ".cljc"
+  "test/run.cljk" ".cljs"
+  "tools/cadence.cljk" ".cljs"
+  "tools/compose_doubutsu.cljk" ".cljs"
+  "tools/compose_iro.cljk" ".cljs"
+  "tools/compose_kazu.cljk" ".cljs"
+  "tools/produce.cljk" ".cljs"
+  "tools/publish_aozora.cljk" ".cljs"
+  "tools/render_doubutsu_video.cljk" ".cljs"
+  "tools/render_iro_video.cljk" ".cljs"
+  "tools/render_kazu_audio.cljk" ".cljs"
+  "tools/render_kazu_video.cljk" ".cljs"
+  "tools/run_gate.cljk" ".cljs"}}

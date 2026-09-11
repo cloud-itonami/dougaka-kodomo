@@ -1,5 +1,5 @@
 ;; kids-safety gate ランナー — 実測 facts を集めて kodomo.safety/gate に通す。
-;;   nbb --classpath src:resources tools/run_gate.cljs <build-dir> <mp4> <post-text-file> \
+;;   nbb --classpath src:resources tools/run_gate.cljk <build-dir> <mp4> <post-text-file> \
 ;;       [song-edn-path] [curriculum-topic-id]
 ;; song-edn / topic を省略すると かずのうた 既定(後方互換)。曲を増やしても
 ;; ゲートは 1 本で回せる(1曲=1固有コンポーザという運用の一般化)。
