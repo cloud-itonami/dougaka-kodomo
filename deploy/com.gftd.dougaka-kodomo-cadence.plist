@@ -16,7 +16,7 @@
     <string>/opt/homebrew/bin/nbb</string>
     <string>--classpath</string>
     <string>src:resources</string>
-    <string>tools/cadence.cljs</string>
+    <string>tools/cadence.cljk</string>
     <string>--publish</string>
   </array>
   <key>WorkingDirectory</key>

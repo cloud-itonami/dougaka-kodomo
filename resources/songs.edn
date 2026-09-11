@@ -4,24 +4,24 @@
 ;; :priority は cadence の投稿順(高いほど先)。
 {:songs
  [{:topic :kazu-1-10
-   :composer "tools/compose_kazu.cljs"
-   :video "tools/render_kazu_video.cljs"
+   :composer "tools/compose_kazu.cljk"
+   :video "tools/render_kazu_video.cljk"
    :song-edn "content/kazu-no-uta.edn"
    :rkey "kazu-no-uta-001"
    :alt "かずのうた — 1から10までかぞえる知育ソング"
    :priority 90
    :post-text "かずのうた 🍎 いち・に・さん!\nメロとポポとミミといっしょに、1から10まで かぞえよう!\nこどもむけ知育ソング(0〜4さい向け)\n#こどもむけ #知育ソング #かずのうた\nVOICEVOX:ずんだもん / VOICEVOX:四国めたん\n"}
   {:topic :iro
-   :composer "tools/compose_iro.cljs"
-   :video "tools/render_iro_video.cljs"
+   :composer "tools/compose_iro.cljk"
+   :video "tools/render_iro_video.cljk"
    :song-edn "content/iro-no-uta.edn"
    :rkey "iro-no-uta-001"
    :alt "いろのうた — 8つの色をおぼえる知育ソング"
    :priority 80
    :post-text "いろのうた 🌈 あか・あお・きいろ!\nメロとポポとミミといっしょに、8つのいろをおぼえよう!\nこどもむけ知育ソング(0〜4さい向け)\n#こどもむけ #知育ソング #いろのうた #いろ\nVOICEVOX:ずんだもん / VOICEVOX:四国めたん\n"}
   {:topic :doubutsu-koe
-   :composer "tools/compose_doubutsu.cljs"
-   :video "tools/render_doubutsu_video.cljs"
+   :composer "tools/compose_doubutsu.cljk"
+   :video "tools/render_doubutsu_video.cljk"
    :song-edn "content/doubutsu-no-uta.edn"
    :rkey "doubutsu-no-uta-001"
    :alt "どうぶつのこえ — 動物の名前と鳴き声の知育ソング"

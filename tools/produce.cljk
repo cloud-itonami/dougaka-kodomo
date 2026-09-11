@@ -1,5 +1,5 @@
 ;; Phase C 汎用 produce ドライバ(ADR-2607164500 / 2607162200)。
-;;   nbb --classpath src:resources tools/produce.cljs <topic-id> [--publish] [--voice <url>]
+;;   nbb --classpath src:resources tools/produce.cljk <topic-id> [--publish] [--voice <url>]
 ;; resources/songs.edn の1エントリを compose→audio→video→gate→publish で一気通貫。
 ;; gate は HARD gate: :hold なら publish せず非ゼロ終了(escalate、ADR-2607162200)。
 ;; --voice 既定 http://127.0.0.1:50021(ローカル VOICEVOX、高速・確実)。cadence が
@@ -19,7 +19,7 @@
 (def voice-url
   (or (second (drop-while #(not= "--voice" %) args)) "http://127.0.0.1:50021"))
 
-(def repo-root (path/dirname (path/dirname (path/resolve "tools/produce.cljs"))))
+(def repo-root (path/dirname (path/dirname (path/resolve "tools/produce.cljk"))))
 (def build-dir (path/join "/tmp" (str "dougaka-produce-" (name topic-id))))
 ;; kotobase-client は sibling repo: <root>/orgs/<org>/ai-gftd-dougaka-kodomo から
 ;; <root>/orgs/kotoba-lang/kotobase-client/src への相対パス(絶対パスのマシン依存を避ける。
@@ -47,7 +47,7 @@
   (fs/mkdirSync build-dir #js {:recursive true})
   (println (str "=== produce " (name topic-id) " → " build-dir " (publish=" publish? ") ==="))
   (run! "compose" "nbb" ["--classpath" "src:resources" (:composer song) build-dir])
-  (run! "audio (public API)" "nbb" [(str repo-root "/tools/render_kazu_audio.cljs") build-dir voice-url])
+  (run! "audio (public API)" "nbb" [(str repo-root "/tools/render_kazu_audio.cljk") build-dir voice-url])
   (run! "video" "nbb" [(:video song) build-dir])
   ;; gate は HARD: exit 1 で produce ごと止める(publish しない)
   (let [mp4 (path/join build-dir (str (str/replace (:rkey song) #"-001$" "") ".mp4"))
@@ -61,7 +61,7 @@
         post-text-file (path/join build-dir "post-text.txt")]
     (fs/writeFileSync post-text-file (:post-text song))
     (println "▶ safety gate (HARD)")
-    (let [r (cp/spawnSync "nbb" (clj->js ["--classpath" "src:resources" "tools/run_gate.cljs"
+    (let [r (cp/spawnSync "nbb" (clj->js ["--classpath" "src:resources" "tools/run_gate.cljk"
                                           build-dir mp4 post-text-file (:song-edn song) (name topic-id)])
                           #js {:cwd repo-root :encoding "utf8"})]
       (println (.-stdout r))
@@ -77,7 +77,7 @@
               "nbb"
               [(str "--classpath")
                kotobase-client-src
-               (str repo-root "/tools/publish_aozora.cljs")
+               (str repo-root "/tools/publish_aozora.cljk")
                mp4 post-text-file "kodomo.aozora.app" (:rkey song) (:alt song)])
         (println (str "✓ posted " (:rkey song)))))))
 

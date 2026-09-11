@@ -1,5 +1,5 @@
 ;; Phase C cadence 選択器(ADR-2607164500 / 2607162200)。
-;;   nbb --classpath src:resources tools/cadence.cljs [--publish]
+;;   nbb --classpath src:resources tools/cadence.cljk [--publish]
 ;; kodomo.aozora.app の既存投稿(getAuthorFeed)を確認し、songs.edn の未投稿トピックを
 ;; :priority 降順で1つ選び produce.cljs に委譲する。全投稿済みなら no-op(exit 0)。
 ;; publish 承認は gate green で auto(ADR-2607162200: governor auto-publish +
@@ -14,7 +14,7 @@
 
 (def args (vec *command-line-args*))
 (def publish? (some #(= "--publish" %) args))
-(def repo-root (path/dirname (path/dirname (path/resolve "tools/cadence.cljs"))))
+(def repo-root (path/dirname (path/dirname (path/resolve "tools/cadence.cljk"))))
 (def appview "https://appview.aozora.app")
 (def handle "kodomo.aozora.app")
 
@@ -61,7 +61,7 @@
         (let [topic (name (:topic next-song))]
           (println (str "→ next topic: " topic " (rkey " (:rkey next-song) ")"))
           (let [r (cp/spawnSync "nbb"
-                                (clj->js (concat ["--classpath" "src:resources" "tools/produce.cljs" topic]
+                                (clj->js (concat ["--classpath" "src:resources" "tools/produce.cljk" topic]
                                                  (when publish? ["--publish"])))
                                 #js {:cwd repo-root :encoding "utf8" :stdio "inherit"})]
             (js/process.exit (.-status r))))

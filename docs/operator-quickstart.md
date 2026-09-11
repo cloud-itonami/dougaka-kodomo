@@ -24,7 +24,7 @@ load average 10.29（walk 中は 14〜19）、他セッション並走中。
 
 この repo は **npm パッケージを 1 つも要求しない**。`package.json` に
 `@ipld/dag-cbor` と `@noble/curves` が宣言されているが、これは §6 の publish 経路
-（`tools/publish_aozora.cljs`）だけが使う。§1〜§5 に `npm install` は要らない
+（`tools/publish_aozora.cljk`）だけが使う。§1〜§5 に `npm install` は要らない
 （この walk では一度も走らせていない）。
 
 ```bash
@@ -37,7 +37,7 @@ cd dougaka-kodomo
 **nbb が第一経路**（CLAUDE.md の runtime 優先順位）。JVM は互換確認用。
 
 ```bash
-nbb --classpath src:test test/run.cljs
+nbb --classpath src:test test/run.cljk
 ```
 
 実出力:
@@ -81,9 +81,9 @@ Ran 17 tests containing 28 assertions.
 composer は純データ。VOICEVOX も ffmpeg も呼ばない。
 
 ```bash
-nbb --classpath src:resources tools/compose_kazu.cljs     /tmp/kodomo-build-kazu
-nbb --classpath src:resources tools/compose_iro.cljs      /tmp/kodomo-build-iro
-nbb --classpath src:resources tools/compose_doubutsu.cljs /tmp/kodomo-build-doubutsu
+nbb --classpath src:resources tools/compose_kazu.cljk     /tmp/kodomo-build-kazu
+nbb --classpath src:resources tools/compose_iro.cljk      /tmp/kodomo-build-iro
+nbb --classpath src:resources tools/compose_doubutsu.cljk /tmp/kodomo-build-doubutsu
 ```
 
 実出力（3 本とも exit 0）:
@@ -122,7 +122,7 @@ a24a42ed234232e9a1892e802ea9a3c5f3568cff00a10d3d3468348ec437877b  content/iro-no
 
 ## 3. 映像を作る —— 歌声の代役を 1 本置く
 
-`tools/render_kazu_video.cljs` は最後に `audio-final.wav` と多重化する。
+`tools/render_kazu_video.cljk` は最後に `audio-final.wav` と多重化する。
 本番ではそれが VOICEVOX の歌声だが、**手元に無くても代役を置けば映像経路は
 最後まで通る**。尺は §2 が出した `total-sec`（かずのうたは 98.4 秒）に合わせる。
 
@@ -139,7 +139,7 @@ ffmpeg -hide_banner -loglevel error \
 
 ```bash
 cd <repo>
-nbb tools/render_kazu_video.cljs /tmp/kodomo-build-kazu
+nbb tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
 ```
 
 ⚠ **この workspace では高負荷 build を resource governor 経由で回す**
@@ -149,7 +149,7 @@ nbb tools/render_kazu_video.cljs /tmp/kodomo-build-kazu
 
 ```bash
 node <superproject>/scripts/resource-guard.mjs run build -- \
-  nbb tools/render_kazu_video.cljs /tmp/kodomo-build-kazu
+  nbb tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
 ```
 
 実出力:
@@ -187,7 +187,7 @@ size=4364502
 printf 'かずのうた 🍎 いち・に・さん!\nメロとポポとミミといっしょに、1から10まで かぞえよう!\nこどもむけ知育ソング(0〜4さい向け)\n#こどもむけ #知育ソング #かずのうた\nVOICEVOX:ずんだもん / VOICEVOX:四国めたん\n' \
   > /tmp/kodomo-build-kazu/post-text.txt
 
-nbb --classpath src:resources tools/run_gate.cljs \
+nbb --classpath src:resources tools/run_gate.cljk \
   /tmp/kodomo-build-kazu \
   /tmp/kodomo-build-kazu/kazu-no-uta.mp4 \
   /tmp/kodomo-build-kazu/post-text.txt \
@@ -268,7 +268,7 @@ DECISION: :hold
 **同じ mp4 が §4 では `:publish`、ここでは `:hold`。** 変えたのは公開文 1 個だけで、
 落ちた理由も `:voicevox-credit-missing` の 1 個だけ。
 
-ゲートは `tools/produce.cljs` から HARD gate として呼ばれるので、この exit 1 は
+ゲートは `tools/produce.cljk` から HARD gate として呼ばれるので、この exit 1 は
 **produce ごと止めて publish させない**（ADR-2607162200 の escalate）。
 
 ## 6. 踏めなかったもの（この機械では。理由付き）
@@ -276,9 +276,9 @@ DECISION: :hold
 | 何を | 何が起きたか | 何が要るか |
 |---|---|---|
 | **VOICEVOX 歌唱・話し声** | `curl -m 3 http://127.0.0.1:50021/version` が接続できない（`000`）。`~/.murakumo/voicevox-engine` もこの機械には無い | ローカル VOICEVOX Engine（fleet ノードには常駐。`docs/PHASE-C-CADENCE.md`） |
-| **`tools/produce.cljs` の一気通貫** | compose は通り、伴奏 `accomp.wav`（4,339,440 サンプル）まで**純 nbb で書けた**あと、audio 段で `TypeError: fetch failed` → `✘ audio (public API) failed (exit 1)` | 同上。伴奏シンセは外部依存が無いのでオフラインで動く |
-| **`tools/cadence.cljs`（未投稿の自動選択）** | `https://appview.aozora.app/xrpc/app.bsky.feed.getAuthorFeed` が 20 秒で timeout（`curl` exit 28）。DNS は引ける（`104.21.87.101` / `172.67.169.53`、Cloudflare）ので**名前ではなく到達性** | appview への到達性。到達できないのは投稿の有無ではないので、「未投稿」と読まない |
-| **publish（`tools/publish_aozora.cljs`）** | 実行していない。actor seed（env / Keychain / `~/.murakumo/secrets/`）と appview 到達性の両方が要り、**外向きの投稿**なので walk では踏まない | seed + 到達性。踏むなら `--publish` を明示 |
+| **`tools/produce.cljk` の一気通貫** | compose は通り、伴奏 `accomp.wav`（4,339,440 サンプル）まで**純 nbb で書けた**あと、audio 段で `TypeError: fetch failed` → `✘ audio (public API) failed (exit 1)` | 同上。伴奏シンセは外部依存が無いのでオフラインで動く |
+| **`tools/cadence.cljk`（未投稿の自動選択）** | `https://appview.aozora.app/xrpc/app.bsky.feed.getAuthorFeed` が 20 秒で timeout（`curl` exit 28）。DNS は引ける（`104.21.87.101` / `172.67.169.53`、Cloudflare）ので**名前ではなく到達性** | appview への到達性。到達できないのは投稿の有無ではないので、「未投稿」と読まない |
+| **publish（`tools/publish_aozora.cljk`）** | 実行していない。actor seed（env / Keychain / `~/.murakumo/secrets/`）と appview 到達性の両方が要り、**外向きの投稿**なので walk では踏まない | seed + 到達性。踏むなら `--publish` を明示 |
 | **fleet ノードの cron** | `asher` / `naphtali` の crontab はこの機械からは観測していない | ノード上で `crontab -l` |
 
 ⚠ **「到達できなかった」を「無い」と読まない。** 上の appview は timeout であって
@@ -294,7 +294,7 @@ DECISION: :hold
 gate の `:vocab` が確かめる（未知語率 20% 以下）。かずのうたの実測は
 `tokens: 75 lexicon: 16` で未知語率 0。
 
-`tools/run_gate.cljs` は曲固有の `tokenize` map を持つが、**無くても動く** ——
+`tools/run_gate.cljk` は曲固有の `tokenize` map を持つが、**無くても動く** ——
 空白区切りなら split、それも無ければ行そのものを 1 トークンとして扱う。
 新しい曲で `:vocab` が落ちたら、まず lexicon を見る（tokenize を足すのはその後）。
 

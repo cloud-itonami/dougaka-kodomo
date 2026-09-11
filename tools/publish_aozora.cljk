@@ -1,7 +1,7 @@
 ;; aozora.app への video post 投稿（Phase A publisher。ADR-2607164500）。
 ;; 実行は kotobase-client の node_modules を解決できる場所から:
 ;;   cd orgs/kotoba-lang/kotobase-client && \
-;;   nbb --classpath src <this>/tools/publish_aozora.cljs <mp4> <post-text> [handle]
+;;   nbb --classpath src <this>/tools/publish_aozora.cljk <mp4> <post-text> [handle]
 ;; 認証は studio と同じ self-sovereign CACAO (kotobase.cacao/mint-cacao、
 ;; aud=did:web:aozora.app, capability=account:session)。seed は macOS Keychain
 ;; service "aozora-studio-actor-key-kodomo"（studio の慣習と同一、無ければ生成して保存）。
