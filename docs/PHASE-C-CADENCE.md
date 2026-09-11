@@ -17,9 +17,9 @@
 ## 手動実行
 ```
 cd orgs/cloud-itonami/dougaka-kodomo
-nbb --classpath src:resources tools/produce.cljk doubutsu-koe          # ドライラン(制作+gate、投稿しない)
-nbb --classpath src:resources tools/produce.cljk doubutsu-koe --publish # 投稿まで
-nbb --classpath src:resources tools/cadence.cljk --publish              # 次の未投稿を自動選択して投稿
+kbb --backend sci --classpath src:resources tools/produce.cljk doubutsu-koe          # ドライラン(制作+gate、投稿しない)
+kbb --backend sci --classpath src:resources tools/produce.cljk doubutsu-koe --publish # 投稿まで
+kbb --backend sci --classpath src:resources tools/cadence.cljk --publish              # 次の未投稿を自動選択して投稿
 ```
 
 ## 実行環境 — murakumo fleet 分散(ADR-2607164500 addendum、2026-07-18)

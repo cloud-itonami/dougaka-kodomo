@@ -1,5 +1,5 @@
 ;; Phase C cadence 選択器(ADR-2607164500 / 2607162200)。
-;;   nbb --classpath src:resources tools/cadence.cljk [--publish]
+;;   kbb --backend sci --classpath src:resources tools/cadence.cljk [--publish]
 ;; kodomo.aozora.app の既存投稿(getAuthorFeed)を確認し、songs.edn の未投稿トピックを
 ;; :priority 降順で1つ選び produce.cljs に委譲する。全投稿済みなら no-op(exit 0)。
 ;; publish 承認は gate green で auto(ADR-2607162200: governor auto-publish +

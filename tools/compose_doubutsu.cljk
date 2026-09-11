@@ -1,5 +1,5 @@
 ;; どうぶつのこえ (5どうぶつ) — Phase A の第3曲(ADR-2607164500)。
-;;   nbb --classpath src:resources tools/compose_doubutsu.cljk <build-dir>
+;;   kbb --backend sci --classpath src:resources tools/compose_doubutsu.cljk <build-dir>
 ;; Old MacDonald 系 PD メロディのオリジナル編曲。動物名 + 鳴き声の call-and-response。
 ;; compose_kazu/iro と同じ JSON 出力形(render_kazu_audio 汎用が処理)。映像は
 ;; render_doubutsu_video.cljs。

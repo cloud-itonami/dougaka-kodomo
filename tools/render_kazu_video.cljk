@@ -1,5 +1,5 @@
 ;; Phase A 映像レンダラ — SVG 生成 → rsvg-convert → ffmpeg 拍同期合成。
-;;   nbb tools/render_kazu_video.cljk <build-dir>
+;;   kbb --backend sci tools/render_kazu_video.cljk <build-dir>
 ;; compose-scene 設計（ADR-2607164500）の最小実装:
 ;; cutout layer + BPM 同期 bounce + カウント連動のりんご出現。
 (ns render-kazu-video

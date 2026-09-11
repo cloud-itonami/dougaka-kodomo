@@ -1,5 +1,5 @@
 ;; いろのうた 映像レンダラ(ADR-2607164500 Phase A #2)。
-;;   nbb tools/render_iro_video.cljk <build-dir>
+;;   kbb --backend sci tools/render_iro_video.cljk <build-dir>
 ;; compose-scene 設計: cutout layer(メロ/ポポ/ミミ) + BPM 同期 bounce +
 ;; 歌詞と同期した色スウォッチ出現。timeline.json の :sections/:colors を消費。
 (ns render-iro-video

@@ -34,8 +34,8 @@ Cocomelon / ChuChu TV / Pinkfong / Infobells / El Reino Infantil 型の
 
 ```bash
 # テスト（nbb が第一経路。JVM は互換）
-nbb --classpath src:test test/run.cljk
-clojure -M:test
+kbb --backend sci --classpath src:test test/run.cljk
+kbb -M:test
 ```
 
 実 IO（VOICEVOX / ComfyUI / seedance / YouTube / D1）はこのリポジトリに置かない。

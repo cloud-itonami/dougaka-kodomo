@@ -1,5 +1,5 @@
 ;; かずのうた (1〜10) — Phase A の決定論コンポーザ。
-;;   nbb --classpath src tools/compose_kazu.cljk <build-dir>
+;;   kbb --backend sci --classpath src tools/compose_kazu.cljk <build-dir>
 ;; song spec (content/kazu-no-uta.edn) と実行プラン
 ;; (scores.json / spoken.json / accomp.json / timeline.json) を純データで出力する。
 ;; 外部 IO なし（VOICEVOX/ffmpeg 実行は render_kazu_audio.cljs 側）。
