@@ -1,5 +1,5 @@
 (ns kodomo.safety-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kodomo.safety :as safety]
             [kodomo.pipeline :as pipeline]))
 
