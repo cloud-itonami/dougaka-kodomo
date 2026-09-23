@@ -1,5 +1,5 @@
 (ns kodomo.song-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kodomo.song :as song]))
 
 (def valid-song
