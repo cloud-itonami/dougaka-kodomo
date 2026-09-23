@@ -9,7 +9,7 @@
             ["path" :as path]
             ["child_process" :as cp]
             [kotoba.lang.text :as str]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             [kodomo.safety :as safety]))
 
 (def build-dir (first *command-line-args*))
