@@ -3,10 +3,11 @@
 (ns run
   (:require [kotoba.test :as t]
             [kodomo.song-test]
-            [kodomo.safety-test]))
+            [kodomo.safety-test]
+            [kodomo.safety-boundary-test]))
 
 (defmethod t/report [:cljs.test/default :end-run-tests] [m]
   (when-not (t/successful? m)
     (set! (.-exitCode js/process) 1)))
 
-(t/run-tests 'kodomo.song-test 'kodomo.safety-test)
+(t/run-tests 'kodomo.song-test 'kodomo.safety-test 'kodomo.safety-boundary-test)
