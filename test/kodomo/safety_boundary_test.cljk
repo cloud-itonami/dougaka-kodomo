@@ -1,0 +1,141 @@
+(ns kodomo.safety-boundary-test
+  "kids-safety gate の境界と欠測。safety_test は「明らかに悪い値で :hold」を
+   見るが、gate が一番間違えやすいのは (1) 計測値が**無い**とき、(2) 閾値
+   **ちょうど**のとき、(3) truthy だが true ではない申告のとき。どれも
+   「測れなかった」を「測って問題が無かった」と同じ値にする形なので、
+   ここで 1 本ずつ固定する（superproject ADR-2608136000 の 8 問 1・5）。
+
+   ⚠ :ip-flags は欠測（nil）でも pass する（`empty?` は nil に true）。
+   tools/run_gate.cljk は `:ip-flags []` を固定で渡しており、類似判定は
+   実際には走っていない。これは gate の仕様の問題なのでここでは固定しない
+   —— 欠陥を不変条件として pin しないため。"
+  (:require [kotoba.test :refer [deftest is testing]]
+            [kodomo.safety :as safety]
+            [kodomo.pipeline :as pipeline]))
+
+(def green-facts
+  {:integrated-lufs -14.5
+   :true-peak-dbtp -1.5
+   :duration-sec 150
+   :kind :single
+   :max-flashes-per-sec 0.5
+   :lyric-tokens ["えー" "びー" "しー" "うた" "いっしょ"]
+   :lexicon ["えー" "びー" "しー" "うた" "いっしょ"]
+   :made-for-kids? true
+   :description "ABCのうた | VOICEVOX:四国めたん"
+   :uses-voicevox? true
+   :ip-flags []})
+
+(defn- failed-checks [facts]
+  (set (map :check (:failed (safety/gate facts)))))
+
+(defn- ok? [check facts] (:ok? (check facts)))
+
+;; --- 欠測は publish しない --------------------------------------------------
+
+(deftest control-green-facts-publish
+  ;; 以下の :hold がすべて「その 1 キーのせい」であることの対照
+  (is (= :publish (:decision (safety/gate green-facts)))))
+
+(deftest missing-measurement-never-publishes
+  (doseq [[k check] [[:integrated-lufs :loudness]
+                     [:true-peak-dbtp :loudness]
+                     [:duration-sec :duration]
+                     [:max-flashes-per-sec :flash]
+                     [:lyric-tokens :vocab]
+                     [:made-for-kids? :metadata]]]
+    (testing (str "dissoc " k)
+      (let [facts (dissoc green-facts k)]
+        (is (= :hold (:decision (safety/gate facts))))
+        (is (= #{check} (failed-checks facts)))))))
+
+(deftest non-numeric-measurement-never-publishes
+  (doseq [[k check] [[:integrated-lufs :loudness]
+                     [:duration-sec :duration]
+                     [:max-flashes-per-sec :flash]]]
+    (testing (str k " as string")
+      (is (= #{check} (failed-checks (assoc green-facts k "0")))))))
+
+(deftest empty-lyrics-hold-at-vocab
+  ;; 0 語は「未知語率 0」ではない —— 何も歌っていない動画を通さない
+  (is (= #{:vocab} (failed-checks (assoc green-facts :lyric-tokens [])))))
+
+(deftest empty-facts-hold-with-every-measured-check-named
+  (is (= #{:loudness :duration :flash :vocab :metadata}
+         (failed-checks {}))))
+
+;; --- 閾値ちょうど -------------------------------------------------------------
+
+(deftest loudness-band-is-inclusive
+  (doseq [lufs [-20.0 -12.0]]
+    (is (ok? safety/check-loudness (assoc green-facts :integrated-lufs lufs)) (str lufs)))
+  (doseq [lufs [-20.1 -11.9]]
+    (is (not (ok? safety/check-loudness (assoc green-facts :integrated-lufs lufs))) (str lufs))))
+
+(deftest true-peak-ceiling-is-minus-one
+  (is (ok? safety/check-loudness (assoc green-facts :true-peak-dbtp -1.0)))
+  (is (not (ok? safety/check-loudness (assoc green-facts :true-peak-dbtp -0.9)))))
+
+(deftest flash-ceiling-is-three-per-second
+  (is (ok? safety/check-flash {:max-flashes-per-sec 3.0}))
+  (is (not (ok? safety/check-flash {:max-flashes-per-sec 3.1}))))
+
+(deftest single-duration-band-edges
+  (doseq [d [60 300]] (is (ok? safety/check-duration {:duration-sec d}) (str d)))
+  (doseq [d [59 301]] (is (not (ok? safety/check-duration {:duration-sec d})) (str d))))
+
+(deftest compilation-duration-band-edges
+  (doseq [d [900 3600]]
+    (is (ok? safety/check-duration {:duration-sec d :kind :compilation}) (str d)))
+  (doseq [d [899 3601]]
+    (is (not (ok? safety/check-duration {:duration-sec d :kind :compilation})) (str d))))
+
+(deftest vocab-unknown-ratio-ceiling-is-one-fifth
+  (let [lex ["a" "b" "c" "d"]]
+    (is (ok? safety/check-vocab {:lyric-tokens ["a" "b" "c" "d" "x"] :lexicon lex})
+        "1/5 unknown")
+    (is (not (ok? safety/check-vocab {:lyric-tokens ["a" "b" "c" "x" "y"] :lexicon lex}))
+        "2/5 unknown")))
+
+;; --- metadata の申告 ----------------------------------------------------------
+
+(deftest made-for-kids-must-be-literally-true
+  (doseq [v ["true" 1 :yes]]
+    (is (= [:made-for-kids-missing]
+           (get-in (safety/check-metadata (assoc green-facts :made-for-kids? v))
+                   [:detail :errors]))
+        (pr-str v))))
+
+(deftest plain-http-link-is-also-external
+  (is (= [:external-link-in-description]
+         (get-in (safety/check-metadata
+                  (assoc green-facts :description "みてね http://example.com VOICEVOX:x"))
+                 [:detail :errors]))))
+
+(deftest voicevox-credit-only-required-when-voicevox-is-used
+  (is (ok? safety/check-metadata (assoc green-facts :description "ABCのうた" :uses-voicevox? false)))
+  (is (not (ok? safety/check-metadata (assoc green-facts :description "ABCのうた")))))
+
+;; --- gate 全体 ----------------------------------------------------------------
+
+(deftest gate-runs-every-check-and-names-every-failure
+  ;; 最初の fail で止まると、2 つ目の欠陥は次の公開まで見えない
+  (let [{:keys [results failed]} (safety/gate (assoc green-facts
+                                                     :max-flashes-per-sec 9
+                                                     :ip-flags [:x]))]
+    (is (= 6 (count results)))
+    (is (= [:flash :ip-similarity] (mapv :check failed)))))
+
+(deftest safety-gate-precedes-publish-in-stage-order
+  (let [idx (zipmap pipeline/stage-order (range))]
+    (is (< (idx :render-video) (idx :score-safety) (idx :publish)))))
+
+(deftest pipeline-without-facts-is-held-not-done
+  (let [end (pipeline/run-plan
+             {:song {:song/id "x" :song/bpm 96
+                     :song/sections
+                     [{:section/kind :chorus
+                       :section/lines [{:line/lyric "らら" :line/notes [{:note/pitch :C4}]}
+                                       {:line/lyric "らら" :line/notes [{:note/pitch :C4}]}]}]}})]
+    (is (= :held (:status end)))
+    (is (not= :publish (:stage end)))))
