@@ -34,7 +34,7 @@ cd dougaka-kodomo
 
 ## 1. テストが通ることを見る
 
-**nbb が第一経路**（CLAUDE.md の runtime 優先順位）。JVM は互換確認用。
+**nbb が第一経路**（AGENTS.md の runtime 優先順位）。JVM は互換確認用。
 
 ```bash
 kbb --backend sci --classpath src:test test/run.cljk
@@ -143,7 +143,7 @@ kbb --backend sci tools/render_kazu_video.cljk /tmp/kodomo-build-kazu
 ```
 
 ⚠ **この workspace では高負荷 build を resource governor 経由で回す**
-（CLAUDE.md の repo-wide mandatory）。walk では実際に 1 度弾かれた ——
+（AGENTS.md の repo-wide mandatory）。walk では実際に 1 度弾かれた ——
 別 repo の build が lock を持っていて `REFUSED build-lock held by pid=...`
 が返り、governor が正しく仕事をした。
 
